@@ -17,7 +17,6 @@ limitations under the License.
 package rpcserver
 
 import (
-	"toyou_csi/pkg/cloud"
 	"toyou_csi/pkg/disk/driver"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -30,15 +29,13 @@ import (
 
 type IdentityServer struct {
 	driver *driver.DiskDriver
-	cloud  cloud.CloudManager
 }
 
 // NewIdentityServer
 // Create identity server
-func NewIdentityServer(d *driver.DiskDriver, c cloud.CloudManager) *IdentityServer {
+func NewIdentityServer(d *driver.DiskDriver) *IdentityServer {
 	return &IdentityServer{
 		driver: d,
-		cloud:  c,
 	}
 }
 
@@ -46,10 +43,6 @@ var _ csi.IdentityServer = &IdentityServer{}
 
 // Plugin MUST implement this RPC call
 func (is *IdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	zones, err := is.cloud.GetZoneList()
-	if err != nil {
-		return nil, status.Error(codes.FailedPrecondition, err.Error())
-	}
 	klog.V(5).Infof("get active zone lists [%v]", zones)
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{Value: true},

@@ -17,23 +17,18 @@ limitations under the License.
 package rpcserver
 
 import (
-	"toyou_csi/pkg/cloud"
 	"toyou_csi/pkg/common"
 	"toyou_csi/pkg/disk/driver"
 )
 
 type ControllerServer struct {
-	driver        *driver.DiskDriver
-	cloud         cloud.CloudManager
-	locks         *common.ResourceLocks
-	detachLimiter common.RetryLimiter
+	driver *driver.DiskDriver
+	locks  *common.ResourceLocks
 }
 
-func NewControllerServer(d *driver.DiskDriver, c cloud.CloudManager, maxRetry int) *ControllerServer {
+func NewControllerServer(d *driver.DiskDriver) *ControllerServer {
 	return &ControllerServer{
-		driver:        d,
-		cloud:         c,
-		locks:         common.NewResourceLocks(),
-		detachLimiter: common.NewRetryLimiter(maxRetry),
+		driver: d,
+		locks:  common.NewResourceLocks(),
 	}
 }

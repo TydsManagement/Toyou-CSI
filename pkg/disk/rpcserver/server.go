@@ -19,12 +19,10 @@ package rpcserver
 import (
 	"time"
 
-	"toyou_csi/pkg/cloud"
 	"toyou_csi/pkg/common"
 	"toyou_csi/pkg/disk/driver"
 
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/util/mount"
 )
 
 var DefaultBackOff = wait.Backoff{
@@ -36,12 +34,11 @@ var DefaultBackOff = wait.Backoff{
 
 // Run
 // Initial and start CSI driver
-func Run(driver *driver.DiskDriver, cloud cloud.CloudManager, mounter *mount.SafeFormatAndMount,
-	endpoint string, retryTimesMax int) {
+func Run(driver *driver.DiskDriver, endpoint string) {
 	// Initialize default library driver
-	ids := NewIdentityServer(driver, cloud)
-	cs := NewControllerServer(driver, cloud, retryTimesMax)
-	ns := NewNodeServer(driver, cloud)
+	ids := NewIdentityServer(driver)
+	cs := NewControllerServer(driver)
+	ns := NewNodeServer(driver)
 
 	s := common.NewNonBlockingGRPCServer()
 	s.Start(endpoint, ids, cs, ns)

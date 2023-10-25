@@ -17,13 +17,9 @@ limitations under the License.
 package driver
 
 import (
-	"os"
-	"strings"
-
 	"toyou_csi/pkg/common"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"k8s.io/klog"
 )
 
 // Check replica
@@ -54,19 +50,6 @@ func IsValidFileSystemType(fs string) bool {
 	default:
 		return false
 	}
-}
-
-// GetInstanceIdFromFile gets instance id from specific file path.
-// In QingCloud Linux instance, it stores instance id in /etc/qingcloud/instance-id.
-func GetInstanceIdFromFile(filepath string) (instanceId string, err error) {
-	bytes, err := os.ReadFile(filepath)
-	if err != nil {
-		return "", err
-	}
-	instanceId = string(bytes[:])
-	instanceId = strings.Replace(instanceId, "\n", "", -1)
-	klog.Infof("Getting instance-id: \"%s\"", instanceId)
-	return instanceId, nil
 }
 
 // NewVolumeCapabilityAccessMode creates CSI volume access mode object.

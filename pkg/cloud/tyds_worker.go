@@ -64,17 +64,6 @@ func NewQingCloudManagerFromConfig(config *qcconfig.Config) (*qingCloudManager, 
 	return &cm, nil
 }
 
-// NewCloudManagerFromFile
-// Create cloud manager from file
-func NewQingCloudManagerFromFile(filePath string) (*qingCloudManager, error) {
-	// create config
-	config, err := ReadConfigFromFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-	return NewQingCloudManagerFromConfig(config)
-}
-
 // Find snapshot by snapshot id
 // Return: 	nil,	nil: 	not found snapshot
 //
