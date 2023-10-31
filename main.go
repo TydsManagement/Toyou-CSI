@@ -22,8 +22,8 @@ import (
 	"os"
 	"time"
 
-	"toyou_csi/pkg/disk/driver"
 	"toyou_csi/pkg/disk/rpcserver"
+	driver2 "toyou_csi/pkg/driver"
 
 	"k8s.io/klog"
 )
@@ -50,15 +50,15 @@ func main() {
 func mainProcess() {
 
 	// Set DiskDriverInput
-	diskDriverInput := &driver.InitDiskDriverInput{
+	diskDriverInput := &driver2.InitDiskDriverInput{
 		Name:          *driverName,
 		Version:       version,
-		VolumeCap:     driver.DefaultVolumeAccessModeType,
-		ControllerCap: driver.DefaultControllerServiceCapability,
-		NodeCap:       driver.DefaultNodeServiceCapability,
-		PluginCap:     driver.DefaultPluginCapability,
+		VolumeCap:     driver2.DefaultVolumeAccessModeType,
+		ControllerCap: driver2.DefaultControllerServiceCapability,
+		NodeCap:       driver2.DefaultNodeServiceCapability,
+		PluginCap:     driver2.DefaultPluginCapability,
 	}
-	tydsDriver := driver.GetDiskDriver()
+	tydsDriver := driver2.GetDiskDriver()
 	tydsDriver.InitDiskDriver(diskDriverInput)
 	rpcserver.Run(tydsDriver, *endpoint)
 }

@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"toyou_csi/pkg/disk/driver"
+	"toyou_csi/pkg/driver"
 
 	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"k8s.io/klog"
@@ -534,44 +534,6 @@ func (qm *qingCloudManager) CloneVolume(volName string, volType int, srcVolId st
 	newVolId = *output.Volumes[0]
 	klog.Infof("Call IaaS CloneVolume name %s id %s succeed", volName, newVolId)
 	return newVolId, nil
-}
-
-// Find instance by instance ID
-// Return: 	nil,	nil: 	not found instance
-//
-//	instance, nil: 	found instance
-//	nil, 	error:	internal error
-func (cm *qingCloudManager) FindInstance(id string) (instance *qcservice.Instance, err error) {
-	seeAppCluster := EnableDescribeInstanceAppCluster
-	verboseMode := EnableDescribeInstanceVerboseMode
-	// set describe instance input
-	input := qcservice.DescribeInstancesInput{
-		Instances:     []*string{&id},
-		IsClusterNode: &seeAppCluster,
-		Verbose:       &verboseMode,
-	}
-	// call describe instance
-	output, err := cm.instanceService.DescribeInstances(&input)
-	// error
-	if err != nil {
-		return nil, err
-	}
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil, fmt.Errorf(*output.Message)
-	}
-	// not found instances
-	switch *output.TotalCount {
-	case 0:
-		return nil, nil
-	case 1:
-		if *output.InstanceSet[0].Status == InstanceStatusCreased || *output.InstanceSet[0].Status == InstanceStatusTerminated {
-			return nil, nil
-		}
-		return output.InstanceSet[0], nil
-	default:
-		return nil, fmt.Errorf("find duplicate instances id %s in %s", id, cm.instanceService.Config.Zone)
-	}
 }
 
 // GetZone

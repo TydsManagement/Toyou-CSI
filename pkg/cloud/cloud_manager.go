@@ -95,27 +95,7 @@ type SnapshotManager interface {
 	CreateVolumeFromSnapshot(volName string, snapId string, zone string) (volId string, err error)
 }
 
-type UtilManager interface {
-	// FindInstance finds and gets instance information by instance id.
-	// Return:
-	//   nil, nil: instance does not exist
-	//   instance info, nil: found instance and return instance info
-	//   nil, error: storage system internal error
-	FindInstance(instanceId string) (instanceInfo *qcservice.Instance, err error)
-	// GetZone gets zone through QingCloud config
-	GetZone() (zoneName string)
-	// GetZoneList get accessible zone list
-	GetZoneList() (zoneNameList []string, err error)
-	// FindTags finds and gets tags information
-	FindTag(tagId string) (tagInfo *qcservice.Tag, err error)
-	// IsValidTags checks tags exists.
-	IsValidTags(tagsId []string) bool
-	// AttachTags add a slice of tags on a object
-	AttachTags(tagsId []string, resourceId string, resourceType string) (err error)
-}
-
 type CloudManager interface {
 	SnapshotManager
 	VolumeManager
-	UtilManager
 }

@@ -17,20 +17,9 @@ limitations under the License.
 package rpcserver
 
 import (
-	"time"
-
 	"toyou_csi/pkg/common"
-	"toyou_csi/pkg/disk/driver"
-
-	"k8s.io/apimachinery/pkg/util/wait"
+	"toyou_csi/pkg/driver"
 )
-
-var DefaultBackOff = wait.Backoff{
-	Duration: time.Second,
-	Factor:   1.5,
-	Steps:    20,
-	Cap:      time.Minute * 2,
-}
 
 // Run
 // Initial and start CSI driver

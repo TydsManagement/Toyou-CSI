@@ -18,7 +18,7 @@ package rpcserver
 
 import (
 	"toyou_csi/pkg/common"
-	"toyou_csi/pkg/disk/driver"
+	"toyou_csi/pkg/driver"
 )
 
 type ControllerServer struct {
