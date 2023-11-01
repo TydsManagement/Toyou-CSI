@@ -28,12 +28,12 @@ import (
 )
 
 type IdentityServer struct {
-	driver *driver.DiskDriver
+	driver *driver.ToyouDriver
 }
 
 // NewIdentityServer
 // Create identity server
-func NewIdentityServer(d *driver.DiskDriver) *IdentityServer {
+func NewIdentityServer(d *driver.ToyouDriver) *IdentityServer {
 	return &IdentityServer{
 		driver: d,
 	}

@@ -22,11 +22,11 @@ import (
 )
 
 type ControllerServer struct {
-	driver *driver.DiskDriver
+	driver *driver.ToyouDriver
 	locks  *common.ResourceLocks
 }
 
-func NewControllerServer(d *driver.DiskDriver) *ControllerServer {
+func NewControllerServer(d *driver.ToyouDriver) *ControllerServer {
 	return &ControllerServer{
 		driver: d,
 		locks:  common.NewResourceLocks(),

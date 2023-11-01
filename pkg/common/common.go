@@ -1,6 +1,11 @@
 package common
 
-import "sync"
+import (
+	"fmt"
+	"hash/fnv"
+	"sync"
+	"time"
+)
 
 type retryLimiter struct {
 	record   map[string]int
@@ -41,4 +46,25 @@ func (r *retryLimiter) GetMaxRetryTimes() int {
 
 func (r *retryLimiter) GetCurrentRetryTimes(id string) int {
 	return r.record[id]
+}
+
+// GenerateRandIdSuffix generates a random resource id.
+func GenerateHashInEightBytes(input string) string {
+	h := fnv.New32a()
+	h.Write([]byte(input))
+	return fmt.Sprintf("%.8x", h.Sum32())
+}
+
+func EntryFunction(functionName string) (info string, hash string) {
+	current := time.Now()
+	hash = GenerateHashInEightBytes(current.UTC().String())
+	return fmt.Sprintf("*************** enter %s at %s hash %s ***************", functionName,
+		current.Format(DefaultTimeFormat), hash), hash
+}
+
+// ExitFunction print timestamps
+func ExitFunction(functionName, hash string) (info string) {
+	current := time.Now()
+	return fmt.Sprintf("=============== exit %s at %s hash %s ===============", functionName,
+		current.Format(DefaultTimeFormat), hash)
 }

@@ -23,7 +23,7 @@ import (
 
 // Run
 // Initial and start CSI driver
-func Run(driver *driver.DiskDriver, endpoint string) {
+func Run(driver *driver.ToyouDriver, endpoint string) {
 	// Initialize default library driver
 	ids := NewIdentityServer(driver)
 	cs := NewControllerServer(driver)

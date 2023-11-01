@@ -23,7 +23,7 @@ import (
 	"k8s.io/klog"
 )
 
-type DiskDriver struct {
+type ToyouDriver struct {
 	name          string
 	version       string
 	nodeId        string
@@ -47,11 +47,11 @@ type InitDiskDriverInput struct {
 
 // GetDiskDriver
 // Create disk driver
-func GetDiskDriver() *DiskDriver {
-	return &DiskDriver{}
+func GetDiskDriver() *ToyouDriver {
+	return &ToyouDriver{}
 }
 
-func (d *DiskDriver) InitDiskDriver(input *InitDiskDriverInput) {
+func (d *ToyouDriver) InitDiskDriver(input *InitDiskDriverInput) {
 	if input == nil {
 		return
 	}
@@ -68,7 +68,7 @@ func (d *DiskDriver) InitDiskDriver(input *InitDiskDriverInput) {
 	d.addPluginCapabilities(input.PluginCap)
 }
 
-func (d *DiskDriver) addVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) {
+func (d *ToyouDriver) addVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) {
 	var vca []*csi.VolumeCapability_AccessMode
 	for _, c := range vc {
 		klog.V(4).Infof("Enabling volume access mode: %v", c.String())
@@ -77,7 +77,7 @@ func (d *DiskDriver) addVolumeCapabilityAccessModes(vc []csi.VolumeCapability_Ac
 	d.volumeCap = vca
 }
 
-func (d *DiskDriver) addControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {
+func (d *ToyouDriver) addControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {
 	var csc []*csi.ControllerServiceCapability
 	for _, c := range cl {
 		klog.V(4).Infof("Enabling controller service capability: %v", c.String())
@@ -86,7 +86,7 @@ func (d *DiskDriver) addControllerServiceCapabilities(cl []csi.ControllerService
 	d.controllerCap = csc
 }
 
-func (d *DiskDriver) addNodeServiceCapabilities(nl []csi.NodeServiceCapability_RPC_Type) {
+func (d *ToyouDriver) addNodeServiceCapabilities(nl []csi.NodeServiceCapability_RPC_Type) {
 	var nsc []*csi.NodeServiceCapability
 	for _, n := range nl {
 		klog.V(4).Infof("Enabling node service capability: %v", n.String())
@@ -95,11 +95,11 @@ func (d *DiskDriver) addNodeServiceCapabilities(nl []csi.NodeServiceCapability_R
 	d.nodeCap = nsc
 }
 
-func (d *DiskDriver) addPluginCapabilities(cap []*csi.PluginCapability) {
+func (d *ToyouDriver) addPluginCapabilities(cap []*csi.PluginCapability) {
 	d.pluginCap = cap
 }
 
-func (d *DiskDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) bool {
+func (d *ToyouDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) bool {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return true
 	}
@@ -112,7 +112,7 @@ func (d *DiskDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCap
 	return false
 }
 
-func (d *DiskDriver) ValidateNodeServiceRequest(c csi.NodeServiceCapability_RPC_Type) bool {
+func (d *ToyouDriver) ValidateNodeServiceRequest(c csi.NodeServiceCapability_RPC_Type) bool {
 	if c == csi.NodeServiceCapability_RPC_UNKNOWN {
 		return true
 	}
@@ -125,14 +125,14 @@ func (d *DiskDriver) ValidateNodeServiceRequest(c csi.NodeServiceCapability_RPC_
 
 }
 
-func (d *DiskDriver) ValidateVolumeCapability(cap *csi.VolumeCapability) bool {
+func (d *ToyouDriver) ValidateVolumeCapability(cap *csi.VolumeCapability) bool {
 	if !d.ValidateVolumeAccessMode(cap.GetAccessMode().GetMode()) {
 		return false
 	}
 	return true
 }
 
-func (d *DiskDriver) ValidateVolumeCapabilities(caps []*csi.VolumeCapability) bool {
+func (d *ToyouDriver) ValidateVolumeCapabilities(caps []*csi.VolumeCapability) bool {
 	for _, cap := range caps {
 		if !d.ValidateVolumeAccessMode(cap.GetAccessMode().GetMode()) {
 			return false
@@ -141,7 +141,7 @@ func (d *DiskDriver) ValidateVolumeCapabilities(caps []*csi.VolumeCapability) bo
 	return true
 }
 
-func (d *DiskDriver) ValidateVolumeAccessMode(c csi.VolumeCapability_AccessMode_Mode) bool {
+func (d *ToyouDriver) ValidateVolumeAccessMode(c csi.VolumeCapability_AccessMode_Mode) bool {
 	for _, mode := range d.volumeCap {
 		if c == mode.GetMode() {
 			return true
@@ -150,7 +150,7 @@ func (d *DiskDriver) ValidateVolumeAccessMode(c csi.VolumeCapability_AccessMode_
 	return false
 }
 
-func (d *DiskDriver) ValidatePluginCapabilityService(cap csi.PluginCapability_Service_Type) bool {
+func (d *ToyouDriver) ValidatePluginCapabilityService(cap csi.PluginCapability_Service_Type) bool {
 	for _, v := range d.GetPluginCapability() {
 		if v.GetService() != nil && v.GetService().GetType() == cap {
 			return true
@@ -159,42 +159,42 @@ func (d *DiskDriver) ValidatePluginCapabilityService(cap csi.PluginCapability_Se
 	return false
 }
 
-func (d *DiskDriver) GetName() string {
+func (d *ToyouDriver) GetName() string {
 	return d.name
 }
 
-func (d *DiskDriver) GetVersion() string {
+func (d *ToyouDriver) GetVersion() string {
 	return d.version
 }
 
-func (d *DiskDriver) GetInstanceId() string {
+func (d *ToyouDriver) GetInstanceId() string {
 	return d.nodeId
 }
 
-func (d *DiskDriver) GetMaxVolumePerNode() int64 {
+func (d *ToyouDriver) GetMaxVolumePerNode() int64 {
 	return d.maxVolume
 }
 
-func (d *DiskDriver) GetControllerCapability() []*csi.ControllerServiceCapability {
+func (d *ToyouDriver) GetControllerCapability() []*csi.ControllerServiceCapability {
 	return d.controllerCap
 }
 
-func (d *DiskDriver) GetNodeCapability() []*csi.NodeServiceCapability {
+func (d *ToyouDriver) GetNodeCapability() []*csi.NodeServiceCapability {
 	return d.nodeCap
 }
 
-func (d *DiskDriver) GetPluginCapability() []*csi.PluginCapability {
+func (d *ToyouDriver) GetPluginCapability() []*csi.PluginCapability {
 	return d.pluginCap
 }
 
-func (d *DiskDriver) GetVolumeCapability() []*csi.VolumeCapability_AccessMode {
+func (d *ToyouDriver) GetVolumeCapability() []*csi.VolumeCapability_AccessMode {
 	return d.volumeCap
 }
 
-func (d *DiskDriver) GetTopologyZoneKey() string {
+func (d *ToyouDriver) GetTopologyZoneKey() string {
 	return fmt.Sprintf("topology.%s/zone", d.GetName())
 }
 
-func (d *DiskDriver) GetTopologyInstanceTypeKey() string {
+func (d *ToyouDriver) GetTopologyInstanceTypeKey() string {
 	return fmt.Sprintf("topology.%s/instance-type", d.GetName())
 }
