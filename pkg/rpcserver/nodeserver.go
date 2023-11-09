@@ -24,12 +24,12 @@ type NodeServer struct {
 	driver  *driver.ToyouDriver
 	mounter *mount.SafeFormatAndMount
 	locks   *common.ResourceLocks
-	manager *cloud.CloudManager
+	manager *cloud.TydsManager
 }
 
 // NewNodeServer
 // Create node server
-func NewNodeServer(d *driver.ToyouDriver, c cloud.CloudManager, mnt *mount.SafeFormatAndMount) *NodeServer {
+func NewNodeServer(d *driver.ToyouDriver, c cloud.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
 	return &NodeServer{
 		driver:  d,
 		manager: c,

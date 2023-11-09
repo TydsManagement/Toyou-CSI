@@ -26,7 +26,7 @@ import (
 	"k8s.io/klog"
 )
 
-var _ CloudManager = &qingCloudManager{}
+var _ TydsManager = &qingCloudManager{}
 
 // 客户端
 type qingCloudManager struct {
