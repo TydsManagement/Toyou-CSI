@@ -17,282 +17,28 @@ limitations under the License.
 package cloud
 
 import (
-	"errors"
-	"fmt"
-
 	"toyou_csi/pkg/driver"
 
 	qcservice "github.com/yunify/qingcloud-sdk-go/service"
 	"k8s.io/klog"
 )
 
-var _ TydsManager = &qingCloudManager{}
+var _ TydsManager = &TydsManager{}
 
-// 客户端
-type qingCloudManager struct {
-	instanceService *qcservice.InstanceService
-	snapshotService *qcservice.SnapshotService
-	volumeService   *qcservice.VolumeService
-	jobService      *qcservice.JobService
-	cloudService    *qcservice.QingCloudService
-	tagService      *qcservice.TagService
+// Example implementation of VolumeManager interface
+type TydsManager struct {
+	// Implement necessary fields and dependencies
 }
 
-func NewQingCloudManagerFromConfig(config *qcconfig.Config) (*qingCloudManager, error) {
-	// initial qingcloud iaas service
-	qs, err := qcservice.Init(config)
-	if err != nil {
-		return nil, err
-	}
-	// create services
-	is, _ := qs.Instance(config.Zone)
-	ss, _ := qs.Snapshot(config.Zone)
-	vs, _ := qs.Volume(config.Zone)
-	js, _ := qs.Job(config.Zone)
-	ts, _ := qs.Tag(config.Zone)
-
-	// initial cloud manager
-	cm := qingCloudManager{
-		instanceService: is,
-		snapshotService: ss,
-		volumeService:   vs,
-		jobService:      js,
-		cloudService:    qs,
-		tagService:      ts,
-	}
-	klog.Infof("Succeed to initial cloud manager")
-	return &cm, nil
+func (m *VolumeManager) FindVolume(volId string) (*TydsClient.Volume, error) {
+	// Implement finding a volume by ID
 }
 
-// Find snapshot by snapshot id
-// Return: 	nil,	nil: 	not found snapshot
-//
-//	snapshot, nil: 	found snapshot
-//	nil, 	error:	internal error
-func (cm *qingCloudManager) FindSnapshot(id string) (snapshot *qcservice.Snapshot, err error) {
-	verboseMode := EnableDescribeSnapshotVerboseMode
-	// Set DescribeSnapshot input
-	input := &qcservice.DescribeSnapshotsInput{
-		Snapshots: []*string{&id},
-		Verbose:   &verboseMode,
-	}
-	// Call describe snapshot
-	output, err := cm.snapshotService.DescribeSnapshots(input)
-	// 1. Error is not equal to nil.
-	if err != nil {
-		return nil, err
-	}
-	// 2. Return code is not equal to 0.
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil, fmt.Errorf("call IaaS DescribeSnapshot err: snapshot id %s in %s",
-			id, cm.snapshotService.Config.Zone)
-	}
-	switch *output.TotalCount {
-	// Not found snapshot
-	case 0:
-		return nil, nil
-	// Found one snapshot
-	case 1:
-		if *output.SnapshotSet[0].Status == SnapshotStatusCeased ||
-			*output.SnapshotSet[0].Status == SnapshotStatusDeleted {
-			return nil, nil
-		}
-		return output.SnapshotSet[0], nil
-	// Found duplicate snapshots
-	default:
-		return nil,
-			fmt.Errorf("call IaaS DescribeSnapshot err: find duplicate snapshot, snapshot id %s in %s",
-				id, cm.snapshotService.Config.Zone)
-	}
+func (m *VolumeManager) FindVolumeByName(volName string) (*TydsClient.Volume, error) {
+	// Implement finding a volume by name
 }
 
-// Find snapshot by snapshot name
-// In Qingcloud IaaS platform, it is possible that two snapshots have the same name.
-// In Kubernetes, the CO will set a unique PV name.
-// CSI driver take the PV name as a snapshot name.
-// Return: 	nil, 		nil: 	not found snapshots
-//
-//	snapshots,	nil:	found snapshot
-//	nil,		error:	internal error
-func (cm *qingCloudManager) FindSnapshotByName(name string) (snapshot *qcservice.Snapshot, err error) {
-	if len(name) == 0 {
-		return nil, nil
-	}
-	verboseMode := EnableDescribeSnapshotVerboseMode
-	// Set input arguments
-	input := &qcservice.DescribeSnapshotsInput{
-		SnapshotName: &name,
-		Verbose:      &verboseMode,
-	}
-	// Call DescribeSnapshot
-	output, err := cm.snapshotService.DescribeSnapshots(input)
-	// Handle error
-	if err != nil {
-		return nil, err
-	}
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil, fmt.Errorf("call IaaS DescribeSnapshots err: snapshot name %s in %s",
-			name, cm.snapshotService.Config.Zone)
-	}
-	// Not found snapshots
-	for _, v := range output.SnapshotSet {
-		if *v.SnapshotName == name && *v.Status != SnapshotStatusCeased && *v.Status != SnapshotStatusDeleted {
-			return v, nil
-		}
-	}
-	return nil, nil
-}
-
-// CreateSnapshot
-// 1. format snapshot size
-// 2. create snapshot
-// 3. wait job
-func (cm *qingCloudManager) CreateSnapshot(snapshotName string, resourceId string) (snapshotId string, err error) {
-	// 0. Set CreateSnapshot args
-	isFull := int(SnapshotFull)
-	// set input value
-	input := &qcservice.CreateSnapshotsInput{
-		SnapshotName: &snapshotName,
-		IsFull:       &isFull,
-		Resources:    []*string{&resourceId},
-	}
-
-	// 1. Create snapshot
-	klog.Infof("Call IaaS CreateSnapshot request snapshot name: %s, zone: %s, resource id %s, is full snapshot %T",
-		*input.SnapshotName, cm.GetZone(), *input.Resources[0], *input.IsFull == SnapshotFull)
-	output, err := cm.snapshotService.CreateSnapshots(input)
-	if err != nil {
-		return "", err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return "", fmt.Errorf("call IaaS CreateSnapshot error: %s", *output.Message)
-	}
-	snapshotId = *output.Snapshots[0]
-	klog.Infof("Call IaaS CreateSnapshots snapshot name %s snapshot id %s succeed", snapshotName, snapshotId)
-	return snapshotId, nil
-}
-
-// DeleteSnapshot
-// 1. delete snapshot by id
-// 2. wait job
-func (sm *qingCloudManager) DeleteSnapshot(snapshotId string) error {
-	// set input value
-	input := &qcservice.DeleteSnapshotsInput{
-		Snapshots: []*string{&snapshotId},
-	}
-	// delete snapshot
-	klog.Infof("Call IaaS DeleteSnapshot request id: %s, zone: %s",
-		snapshotId, *sm.snapshotService.Properties.Zone)
-	output, err := sm.snapshotService.DeleteSnapshots(input)
-	if err != nil {
-		return err
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := sm.waitJob(*output.JobID); err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	klog.Infof("Call IaaS DeleteSnapshot %s succeed", snapshotId)
-	return nil
-}
-
-// Find volume by volume ID
-// Return: 	nil,	nil: 	not found volumes
-//
-//	volume, nil: 	found volume
-//	nil, 	error:	internal error
-func (cm *qingCloudManager) FindVolume(id string) (volInfo *qcservice.Volume, err error) {
-	// Set DescribeVolumes input
-	input := &qcservice.DescribeVolumesInput{
-		Volumes: []*string{&id},
-	}
-	// Call describe volume
-	output, err := cm.volumeService.DescribeVolumes(input)
-	// Error:
-	// 1. Error is not equal to nil.
-	if err != nil {
-		return nil, err
-	}
-	// 2. Return code is not equal to 0.
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil,
-			fmt.Errorf("call IaaS DescribeVolumes err: volume id %s in %s", id, cm.volumeService.Config.Zone)
-	}
-	switch *output.TotalCount {
-	// Not found volumes
-	case 0:
-		return nil, nil
-	// Found one volume
-	case 1:
-		if *output.VolumeSet[0].Status == DiskStatusCeased || *output.VolumeSet[0].
-			Status == DiskStatusDeleted {
-			return nil, nil
-		}
-		return output.VolumeSet[0], nil
-	// Found duplicate volumes
-	default:
-		return nil,
-			fmt.Errorf("call IaaS DescribeVolumes err: find duplicate volumes, volume id %s in %s",
-				id, cm.volumeService.Config.Zone)
-	}
-}
-
-// Find volume by volume name
-// In Qingcloud IaaS platform, it is possible that two volumes have the same name.
-// In Kubernetes, the CO will set a unique PV name.
-// CSI driver take the PV name as a volume name.
-// Return: 	nil, 		nil: 	not found volumes
-//
-//	volumes,	nil:	found volume
-//	nil,		error:	internal error
-func (cm *qingCloudManager) FindVolumeByName(name string) (volume *qcservice.Volume, err error) {
-	if len(name) == 0 {
-		return nil, nil
-	}
-	// Set input arguments
-	input := &qcservice.DescribeVolumesInput{
-		SearchWord: &name,
-	}
-	// Call DescribeVolumes
-	output, err := cm.volumeService.DescribeVolumes(input)
-	// Handle error
-	if err != nil {
-		return nil, err
-	}
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil, fmt.Errorf("call IaaS DescribeVolumes err: volume name %s in %s",
-			name, cm.volumeService.Config.Zone)
-	}
-	// Not found volumes
-	for _, v := range output.VolumeSet {
-		if *v.VolumeName != name {
-			continue
-		}
-		if *v.Status == DiskStatusCeased || *v.Status == DiskStatusDeleted {
-			continue
-		}
-		return v, nil
-	}
-	return nil, nil
-}
-
-// CreateVolume
-// 1. format volume size
-// 2. create volume
-// 3. wait job
-func (qm *qingCloudManager) CreateVolume(volName string, requestSize int, replicas int, volType int, zone string, containerConfID string) (
-	newVolId string, err error) {
+func (m *VolumeManager) CreateVolume(volName string, requestSize int, replicas int, volType int, zone string, containerConfID string) (string, error) {
 	// 0. Set CreateVolume args
 	// create volume count
 	count := 1
@@ -336,311 +82,55 @@ func (qm *qingCloudManager) CreateVolume(volName string, requestSize int, replic
 	klog.Infof("Call IaaS CreateVolume name %s id %s succeed", volName, newVolId)
 	return newVolId, nil
 }
-
-// CreateVolumeFromSnapshot
-// In QingCloud, the volume size created from snapshot is equal to original volume.
-func (cm *qingCloudManager) CreateVolumeFromSnapshot(volName string, snapId string, zone string) (
-	volId string, err error) {
-	input := &qcservice.CreateVolumeFromSnapshotInput{
-		VolumeName: &volName,
-		Snapshot:   &snapId,
-		Zone:       &zone,
-	}
-	klog.Infof("Call IaaS CreateVolumeFromSnapshot request volume name: %s, snapshot id: %s",
-		*input.VolumeName, *input.Snapshot)
-	output, err := cm.snapshotService.CreateVolumeFromSnapshot(input)
-	if err != nil {
-		return "", err
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := cm.waitJob(*output.JobID); err != nil {
-		return "", err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return "", fmt.Errorf(*output.Message)
-	}
-	klog.Infof("Call IaaS CreateVolumeFromSnapshot succeed, volume id %s", *output.VolumeID)
-	return *output.VolumeID, nil
 }
 
-// DeleteVolume
-// 1. delete volume by id
-// 2. wait job
-func (cm *qingCloudManager) DeleteVolume(id string) error {
-	// set input value
-	input := &qcservice.DeleteVolumesInput{
-		Volumes: []*string{&id},
-	}
-	// delete volume
-	klog.Infof("Call IaaS DeleteVolume request id: %s, zone: %s",
-		id, *cm.volumeService.Properties.Zone)
-	output, err := cm.volumeService.DeleteVolumes(input)
-	if err != nil {
-		return err
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := cm.waitJob(*output.JobID); err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	klog.Infof("Call IaaS DeleteVolume %s succeed", id)
-	return nil
+func (m *VolumeManager) DeleteVolume(volId string) error {
+	// Implement deleting a volume
 }
 
-// AttachVolume
-// 1. attach volume on instance
-// 2. wait job
-func (cm *qingCloudManager) AttachVolume(volId string, instId string) error {
-	// set input parameter
-	input := &qcservice.AttachVolumesInput{
-		Volumes:  []*string{&volId},
-		Instance: &instId,
-	}
-	// attach volume
-	klog.Infof("Call IaaS AttachVolume request volume id: %s, instance id: %s, zone: %s", volId, instId,
-		cm.GetZone())
-	output, err := cm.volumeService.AttachVolumes(input)
-	if err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := cm.waitJob(*output.JobID); err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	klog.Infof("Call IaaS AttachVolume %s on instance %s succeed", volId, instId)
-	return nil
+func (m *VolumeManager) AttachVolume(volId string, instanceId string) error {
+	// Implement attaching a volume to an instance
 }
 
-// detach volume
-// 1. detach volume
-// 2. wait job
-func (cm *qingCloudManager) DetachVolume(volumeId string, instanceId string) error {
-	// set input parameter
-	input := &qcservice.DetachVolumesInput{
-		Volumes:  []*string{&volumeId},
-		Instance: &instanceId,
-	}
-	// detach volume
-	klog.Infof("Call IaaS DetachVolume request volume id: %s, instance id: %s, zone: %s", volumeId,
-		instanceId, cm.GetZone())
-	output, err := cm.volumeService.DetachVolumes(input)
-	if err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := cm.waitJob(*output.JobID); err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf(*output.Message)
-	}
-	klog.Infof("Call IaaS DetachVolume %s succeed", volumeId)
-	return nil
+func (m *VolumeManager) DetachVolume(volId string, instanceId string) error {
+	// Implement detaching a volume from an instance
 }
 
-// ResizeVolume can expand the size of a volume online
-// requestSize: GB
-func (cm *qingCloudManager) ResizeVolume(volumeId string, requestSize int) error {
-	// resize
-	klog.Infof("Call IaaS ResizeVolume request volume %s size %d Gib in zone [%s]",
-		volumeId, requestSize, cm.GetZone())
-	input := &qcservice.ResizeVolumesInput{
-		Size:    &requestSize,
-		Volumes: []*string{&volumeId},
-	}
-	output, err := cm.volumeService.ResizeVolumes(input)
-	if err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return errors.New(*output.Message)
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := cm.waitJob(*output.JobID); err != nil {
-		return err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return errors.New(*output.Message)
-	}
-	klog.Infof("Call IaaS ResizeVolume id %s size %d succeed", volumeId, requestSize)
-	return nil
+func (m *VolumeManager) ResizeVolume(volId string, requestSize int) error {
+	// Implement resizing a volume
 }
 
-// CloneVolume clones a volume
-// Return:
-//
-//	volume id, nil: succeed to clone volume and return volume id
-//	nil, error: failed to clone volume
-func (qm *qingCloudManager) CloneVolume(volName string, volType int, srcVolId string, zone string) (newVolId string,
-	err error) {
-	// 0. Set CreateVolume args
-	// create volume count
-	count := 1
-	input := &qcservice.CloneVolumesInput{
-		Count:      &count,
-		Volume:     &srcVolId,
-		VolumeName: &volName,
-		VolumeType: &volType,
-		Zone:       &zone,
-	}
-	// 1. Clone volume
-	klog.Infof("Call IaaS CloneVolume request name: %s, source volume id: %s, zone: %s", volName, srcVolId, zone)
-	output, err := qm.volumeService.CloneVolumes(input)
-	if err != nil {
-		return "", err
-	}
-	// wait job
-	klog.Infof("Call IaaS WaitJob %s", *output.JobID)
-	if err := qm.waitJob(*output.JobID); err != nil {
-		return "", err
-	}
-	// check output
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return "", errors.New(*output.Message)
-	}
-	newVolId = *output.Volumes[0]
-	klog.Infof("Call IaaS CloneVolume name %s id %s succeed", volName, newVolId)
-	return newVolId, nil
+func (m *VolumeManager) CloneVolume(volName string, volType int, srcVolId string, zone string) (string, error) {
+	// Implement cloning a volume
 }
 
-// GetZone
-// Get current zone in Qingcloud IaaS
-func (cm *qingCloudManager) GetZone() string {
-	if cm == nil {
-		return ""
-	}
-	return cm.cloudService.Config.Zone
+// Example implementation of SnapshotManager interface
+type SnapshotManager struct {
+	// Implement necessary fields and dependencies
 }
 
-// GetZoneList gets active zone list
-func (zm *qingCloudManager) GetZoneList() (zones []string, err error) {
-	output, err := zm.cloudService.DescribeZones(&qcservice.DescribeZonesInput{})
-	// Error:
-	// 1. Error is not equal to nil.
-	if err != nil {
-		return nil, err
-	}
-	if output == nil {
-		klog.Error("should not response nil")
-	}
-	for i := range output.ZoneSet {
-		if *output.ZoneSet[i].Status == ZoneStatusActive {
-			zones = append(zones, *output.ZoneSet[i].ZoneID)
-		}
-	}
-	return zones, nil
+func (m *SnapshotManager) FindSnapshot(snapId string) (*TydsClient.Snapshot, error) {
+	// Implement finding a snapshot by ID
 }
 
-// FindTags finds and gets tags information
-func (cm *qingCloudManager) FindTag(tagId string) (tagInfo *qcservice.Tag, err error) {
-	if len(tagId) == 0 {
-		return nil, nil
-	}
-	input := &qcservice.DescribeTagsInput{
-		Tags: []*string{&tagId},
-	}
-
-	output, err := cm.tagService.DescribeTags(input)
-	if err != nil {
-		return nil, err
-	}
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return nil, fmt.Errorf("call IaaS DescribeTags err: tag id %s in %s", tagId, cm.GetZone())
-	}
-	switch *output.TotalCount {
-	// Not found tag
-	case 0:
-		return nil, nil
-	// Found one tag
-	case 1:
-		return output.TagSet[0], nil
-	// Found duplicate tags
-	default:
-		return nil, fmt.Errorf("call IaaS DescribeTags err: find duplicate tags, tag id %s in %s",
-			tagId, cm.GetZone())
-	}
+func (m *SnapshotManager) FindSnapshotByName(snapName string) (*TydsClient.Snapshot, error) {
+	// Implement finding a snapshot by name
 }
 
-// AttachTag adds a slice of tags on a object
-func (cm *qingCloudManager) AttachTags(tagsId []string, resourceId string, resourceType string) (err error) {
-	if len(tagsId) == 0 {
-		klog.Infof("No tags need attached")
-		return nil
-	}
-	var tagPairs []*qcservice.ResourceTagPair
-	for index := range tagsId {
-		tagPairs = append(tagPairs, &qcservice.ResourceTagPair{
-			ResourceID:   &resourceId,
-			ResourceType: &resourceType,
-			TagID:        &tagsId[index],
-		})
-	}
-	input := &qcservice.AttachTagsInput{tagPairs}
-	output, err := cm.tagService.AttachTags(input)
-	if err != nil {
-		return err
-	}
-	if *output.RetCode != 0 {
-		klog.Errorf("Ret code: %d, message: %s", *output.RetCode, *output.Message)
-		return fmt.Errorf("call IaaS AttachTags err: tag id %v, resource id %s, resource type %s in %s", tagsId,
-			resourceId, resourceType, cm.GetZone())
-	}
-	klog.Infof("Call IaaS AttachTags %v on resource %s succeed", tagsId, resourceId)
-	return nil
+func (m *SnapshotManager) CreateSnapshot(snapName string, volId string) (string, error) {
+	// Implement creating a snapshot
 }
 
-// IsValidTags checks tags exists.
-func (cm *qingCloudManager) IsValidTags(tagsId []string) bool {
-	for _, tagId := range tagsId {
-		tagInfo, err := cm.FindTag(tagId)
-		if err != nil {
-			return false
-		}
-		if tagInfo == nil {
-			return false
-		}
-	}
-	return true
+func (m *SnapshotManager) DeleteSnapshot(snapId string) error {
+	// Implement deleting a snapshot
 }
 
-func (cm *qingCloudManager) waitJob(jobId string) error {
-	err := qcclient.WaitJob(cm.jobService, jobId, WaitJobTimeout, WaitJobInterval)
-	if err != nil {
-		return fmt.Errorf("call IaaS WaitJob id %s, error: ", err)
-	}
-	return nil
+func (m *SnapshotManager) CreateVolumeFromSnapshot(volName string, snapId string, zone string) (string, error) {
+	// Implement creating a volume from a snapshot
+}
+
+// Example implementation of TydsManager interface
+type TydsManager struct {
+	VolumeManager
+	SnapshotManager
 }
