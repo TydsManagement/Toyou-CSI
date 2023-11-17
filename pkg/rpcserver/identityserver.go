@@ -43,7 +43,6 @@ var _ csi.IdentityServer = &IdentityServer{}
 
 // Plugin MUST implement this RPC call
 func (is *IdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	klog.V(5).Infof("get active zone lists [%v]", zones)
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{Value: true},
 	}, nil

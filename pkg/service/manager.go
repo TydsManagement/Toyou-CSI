@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cloud
+package service
 
 type VolumeManager interface {
-	FindVolume(volId string) (volInfo *TydsClient.Volume, err error)
-	FindVolumeByName(volName string) (volInfo *TydsClient.Volume, err error)
+	FindVolume(volId string)
+	FindVolumeByName(volName string) (interface{}, error)
 	CreateVolume(volName string, requestSize int, replicas int, volType int, zone string, containerConfID string) (volId string, err error)
 	DeleteVolume(volId string) (err error)
 	AttachVolume(volId string, instanceId string) (err error)
@@ -28,10 +28,10 @@ type VolumeManager interface {
 }
 
 type SnapshotManager interface {
-	FindSnapshot(snapId string) (snapInfo *TydsClient.Snapshot, err error)
-	FindSnapshotByName(snapName string) (snapInfo *TydsClient.Snapshot, err error)
-	CreateSnapshot(snapName string, volId string) (snapId string, err error)
-	DeleteSnapshot(snapId string) (err error)
+	FindSnapshot(snapId string) (*interface{}, error)
+	FindSnapshotByName(snapName string) (*interface{}, error)
+	CreateSnapshot(snapName string, volID string) error
+	DeleteSnapshot(snapID string) error
 	CreateVolumeFromSnapshot(volName string, snapId string, zone string) (volId string, err error)
 }
 

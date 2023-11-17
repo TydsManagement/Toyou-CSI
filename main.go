@@ -22,8 +22,10 @@ import (
 	"os"
 	"time"
 
-	driver2 "toyou_csi/pkg/driver"
+	"toyou_csi/pkg/common"
+	"toyou_csi/pkg/driver"
 	"toyou_csi/pkg/rpcserver"
+	"toyou_csi/pkg/service"
 
 	"k8s.io/klog"
 )
@@ -35,6 +37,7 @@ const (
 )
 
 var (
+	configPath = flag.String("config", defaultConfigPath, "server config file path")
 	driverName = flag.String("drivername", defaultProvisionName, "name of the driver")
 	endpoint   = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
 )
@@ -48,17 +51,21 @@ func main() {
 }
 
 func mainProcess() {
-
+	tydsManager, err := service.NewManagerClientFromConfig(*configPath)
+	if err != nil {
+		klog.Fatal(err)
+	}
 	// Set DiskDriverInput
-	diskDriverInput := &driver2.InitDiskDriverInput{
+	diskDriverInput := &driver.InitDiskDriverInput{
 		Name:          *driverName,
 		Version:       version,
-		VolumeCap:     driver2.DefaultVolumeAccessModeType,
-		ControllerCap: driver2.DefaultControllerServiceCapability,
-		NodeCap:       driver2.DefaultNodeServiceCapability,
-		PluginCap:     driver2.DefaultPluginCapability,
+		VolumeCap:     driver.DefaultVolumeAccessModeType,
+		ControllerCap: driver.DefaultControllerServiceCapability,
+		NodeCap:       driver.DefaultNodeServiceCapability,
+		PluginCap:     driver.DefaultPluginCapability,
 	}
-	tydsDriver := driver2.GetDiskDriver()
-	tydsDriver.InitDiskDriver(diskDriverInput)
-	rpcserver.Run(tydsDriver, *endpoint)
+	mounter := common.NewSafeMounter()
+	TydsDriver := driver.GetDiskDriver()
+	TydsDriver.InitDiskDriver(diskDriverInput)
+	rpcserver.Run(TydsDriver, tydsManager, mounter, *endpoint)
 }

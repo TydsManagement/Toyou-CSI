@@ -19,15 +19,18 @@ package rpcserver
 import (
 	"toyou_csi/pkg/common"
 	"toyou_csi/pkg/driver"
+	"toyou_csi/pkg/service"
+
+	"k8s.io/kubernetes/pkg/util/mount"
 )
 
 // Run
 // Initial and start CSI driver
-func Run(driver *driver.ToyouDriver, endpoint string) {
+func Run(driver *driver.ToyouDriver, tydsmanager service.TydsManager, mounter *mount.SafeFormatAndMount, endpoint string) {
 	// Initialize default library driver
 	ids := NewIdentityServer(driver)
+	ns := NewNodeServer(driver, tydsmanager, mounter)
 	cs := NewControllerServer(driver)
-	ns := NewNodeServer(driver)
 
 	s := common.NewNonBlockingGRPCServer()
 	s.Start(endpoint, ids, cs, ns)

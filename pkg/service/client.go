@@ -1,4 +1,4 @@
-package tyservice
+package service
 
 import (
 	"bytes"
@@ -15,12 +15,14 @@ import (
 
 type TydsClient struct {
 	Username        string
+	Hostname        string
 	Password        string
 	BaseURL         string
 	SnapshotCount   int
 	Token           string
 	TokenExpiration int64
 	IP              string
+	Port            int
 }
 
 func NewTydsClient(hostname string, port int, username string, password string) *TydsClient {
@@ -163,8 +165,8 @@ func getLocalIP() string {
 
 //
 // func main() {
-// 	client := NewTydsClient("hostname", 1234, "username", "password")
-// 	// Use the client to make requests
+// 	service := NewTydsClient("hostname", 1234, "username", "password")
+// 	// Use the service to make requests
 // }
 
 func (c *TydsClient) GetPools() []interface{} {
@@ -182,6 +184,23 @@ func (c *TydsClient) GetPools() []interface{} {
 	}
 
 	return poolList
+}
+
+func (c *TydsClient) GetVolume(volID string) (interface{}, error) {
+	url := fmt.Sprintf("block/block/%s", volID)
+	response, err := c.SendHTTPAPI(url, nil, "GET")
+	if err != nil {
+		// Handle API request failure
+		return nil, err
+	}
+
+	volume, ok := response.(map[string]interface{})
+	if !ok {
+		// Handle invalid response format
+		return nil, fmt.Errorf("unexpected response format")
+	}
+
+	return volume, nil
 }
 
 func (c *TydsClient) GetVolumes() []interface{} {
@@ -348,10 +367,10 @@ func (c *TydsClient) GetCopyProgress(blockID string, blockName string, targetBlo
 }
 
 func (c *TydsClient) CreateInitiatorGroup(groupName string, client string) error {
-	url := "iscsi/client-group/"
+	url := "iscsi/service-group/"
 	params := map[string]interface{}{
 		"group_name": groupName,
-		"client":     client,
+		"service":    client,
 		"chap_auth":  0,
 		"mode":       "ISCSI",
 	}
@@ -360,13 +379,13 @@ func (c *TydsClient) CreateInitiatorGroup(groupName string, client string) error
 }
 
 func (c *TydsClient) DeleteInitiatorGroup(groupID string) error {
-	url := fmt.Sprintf("iscsi/client-group/?group_id=%s", groupID)
+	url := fmt.Sprintf("iscsi/service-group/?group_id=%s", groupID)
 	_, err := c.SendHTTPAPI(url, nil, "DELETE")
 	return err
 }
 
 func (c *TydsClient) GetInitiatorList() (interface{}, error) {
-	url := "iscsi/client-group/"
+	url := "iscsi/service-group/"
 	return c.SendHTTPAPI(url, nil, "GET")
 }
 

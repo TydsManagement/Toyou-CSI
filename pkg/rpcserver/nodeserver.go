@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"toyou_csi/pkg/cloud"
 	"toyou_csi/pkg/common"
 	"toyou_csi/pkg/driver"
+	"toyou_csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"golang.org/x/net/context"
@@ -24,15 +24,15 @@ type NodeServer struct {
 	driver  *driver.ToyouDriver
 	mounter *mount.SafeFormatAndMount
 	locks   *common.ResourceLocks
-	manager *cloud.TydsManager
+	manager service.TydsManager
 }
 
 // NewNodeServer
 // Create node server
-func NewNodeServer(d *driver.ToyouDriver, c cloud.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
+func NewNodeServer(d *driver.ToyouDriver, m service.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
 	return &NodeServer{
 		driver:  d,
-		manager: c,
+		manager: m,
 		mounter: mnt,
 		locks:   common.NewResourceLocks(),
 	}
