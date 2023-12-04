@@ -17,22 +17,48 @@ limitations under the License.
 package rpcserver
 
 import (
-	"toyou_csi/pkg/common"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"toyou_csi/pkg/driver"
 	"toyou_csi/pkg/service"
 
-	"k8s.io/kubernetes/pkg/util/mount"
+	"github.com/container-storage-interface/spec/lib/go/csi"
+	"google.golang.org/grpc"
+	"k8s.io/klog"
 )
 
-// Run
-// Initial and start CSI driver
-func Run(driver *driver.ToyouDriver, tydsmanager service.TydsManager, mounter *mount.SafeFormatAndMount, endpoint string) {
-	// Initialize default library driver
-	ids := NewIdentityServer(driver)
-	ns := NewNodeServer(driver, tydsmanager, mounter)
-	cs := NewControllerServer(driver)
+// Run initializes and starts the CSI driver's gRPC server.
+func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, endpoint string) {
+	// Listen on the specified endpoint
+	listener, err := net.Listen("tcp", endpoint)
+	if err != nil {
+		klog.Fatalf("Failed to listen: %v", err)
+	}
 
-	s := common.NewNonBlockingGRPCServer()
-	s.Start(endpoint, ids, cs, ns)
-	s.Wait()
+	// Create a new gRPC server
+	server := grpc.NewServer()
+
+	// Register the CSI services
+	csi.RegisterIdentityServer(server, NewIdentityServer(driver))
+	csi.RegisterControllerServer(server, NewControllerServer(driver, tydsManager))
+	csi.RegisterNodeServer(server, NewNodeServer(driver, tydsManager))
+
+	// Start serving incoming connections
+	go func() {
+		klog.Infof("Starting gRPC server on endpoint %s", endpoint)
+		if err := server.Serve(listener); err != nil {
+			klog.Fatalf("Failed to serve: %v", err)
+		}
+	}()
+
+	// Wait for termination signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+	<-sigCh
+
+	klog.Info("Shutting down gRPC server")
+	server.GracefulStop()
 }

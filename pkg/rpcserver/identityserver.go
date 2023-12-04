@@ -17,60 +17,61 @@ limitations under the License.
 package rpcserver
 
 import (
+	"context"
+
 	"toyou_csi/pkg/driver"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
 )
 
+// IdentityServer implements the IdentityServer CSI gRPC interface.
 type IdentityServer struct {
-	driver *driver.ToyouDriver
+	Driver *driver.ToyouDriver
 }
 
-// NewIdentityServer
-// Create identity server
+// NewIdentityServer creates a new IdentityServer.
 func NewIdentityServer(d *driver.ToyouDriver) *IdentityServer {
 	return &IdentityServer{
-		driver: d,
+		Driver: d,
 	}
 }
 
-var _ csi.IdentityServer = &IdentityServer{}
-
-// Plugin MUST implement this RPC call
+// Probe checks the health and readiness of the service.
 func (is *IdentityServer) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+	klog.Info("Probe called")
+	// Implement your health check logic here.
 	return &csi.ProbeResponse{
 		Ready: &wrappers.BoolValue{Value: true},
 	}, nil
 }
 
-// Get plugin capabilities: CONTROLLER, ACCESSIBILITY, EXPANSION
-func (d *IdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.
-	GetPluginCapabilitiesResponse, error) {
-	klog.V(5).Infof("Using default capabilities")
-	return &csi.GetPluginCapabilitiesResponse{
-		Capabilities: d.driver.GetPluginCapability(),
-	}, nil
-}
+// GetPluginInfo returns metadata of the plugin.
+func (is *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
+	klog.Info("GetPluginInfo called")
 
-func (d *IdentityServer) GetPluginInfo(ctx context.Context,
-	req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	klog.V(5).Infof("Using GetPluginInfo")
-
-	if d.driver.GetName() == "" {
+	if is.Driver.GetName() == "" {
 		return nil, status.Error(codes.Unavailable, "Driver name not configured")
 	}
 
-	if d.driver.GetVersion() == "" {
+	if is.Driver.GetVersion() == "" {
 		return nil, status.Error(codes.Unavailable, "Driver is missing version")
 	}
 
 	return &csi.GetPluginInfoResponse{
-		Name:          d.driver.GetName(),
-		VendorVersion: d.driver.GetVersion(),
+		Name:          is.Driver.GetName(),
+		VendorVersion: is.Driver.GetVersion(),
+	}, nil
+}
+
+// GetPluginCapabilities returns the capabilities of the plugin.
+func (is *IdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
+	klog.Info("GetPluginCapabilities called")
+
+	return &csi.GetPluginCapabilitiesResponse{
+		Capabilities: is.Driver.GetPluginCapability(),
 	}, nil
 }

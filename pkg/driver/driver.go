@@ -47,8 +47,15 @@ type InitDiskDriverInput struct {
 
 // GetDiskDriver
 // Create disk driver
-func GetDiskDriver() *ToyouDriver {
-	return &ToyouDriver{}
+func NewToyouDriver() *ToyouDriver {
+	return &ToyouDriver{
+		name:          "disk.csi.toyou.com",
+		version:       "1.0.0",
+		volumeCap:     make([]*csi.VolumeCapability_AccessMode, 0),
+		controllerCap: make([]*csi.ControllerServiceCapability, 0),
+		nodeCap:       make([]*csi.NodeServiceCapability, 0),
+		pluginCap:     make([]*csi.PluginCapability, 0),
+	}
 }
 
 func (d *ToyouDriver) InitDiskDriver(input *InitDiskDriverInput) {

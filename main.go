@@ -30,42 +30,53 @@ import (
 	"k8s.io/klog"
 )
 
-const (
-	version              = "1.0.0"
-	defaultProvisionName = "disk.csi.toyou.com"
-	defaultConfigPath    = "/etc/config/config.yaml"
-)
-
-var (
-	configPath = flag.String("config", defaultConfigPath, "server config file path")
-	driverName = flag.String("drivername", defaultProvisionName, "name of the driver")
-	endpoint   = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
-)
+// 定义一个包含所有配置项的结构体
+type Config struct {
+	Version       string
+	ProvisionName string
+	ConfigPath    string
+	Endpoint      string
+}
 
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-	rand.NewSource(time.Now().UTC().UnixNano())
-	mainProcess()
+	rand.NewSource(time.Now().UTC().UnixNano()) // 生成随机数种子
+
+	config := &Config{
+		Version:       "1.0.0",
+		ProvisionName: "disk.csi.toyou.com",
+		ConfigPath:    getFlagValue("config", "/etc/config/config.yaml"),
+		Endpoint:      getFlagValue("endpoint", "unix:///tmp/csi.sock"),
+	}
+
+	mainProcess(config)
 	os.Exit(0)
 }
 
-func mainProcess() {
-	tydsManager, err := service.NewManagerClientFromConfig(*configPath)
+// 从flag包中获取命令行参数值的辅助函数
+func getFlagValue(name string, defaultValue string) string {
+	return flag.Lookup(name).Value.(flag.Getter).Get().(string)
+}
+
+func mainProcess(config *Config) {
+	tydsManager, err := service.NewManagerClientFromConfig(config.ConfigPath)
 	if err != nil {
 		klog.Fatal(err)
 	}
-	// Set DiskDriverInput
+
+	// 设置初始化磁盘驱动输入
 	diskDriverInput := &driver.InitDiskDriverInput{
-		Name:          *driverName,
-		Version:       version,
+		Name:          config.ProvisionName,
+		Version:       config.Version,
 		VolumeCap:     driver.DefaultVolumeAccessModeType,
 		ControllerCap: driver.DefaultControllerServiceCapability,
 		NodeCap:       driver.DefaultNodeServiceCapability,
 		PluginCap:     driver.DefaultPluginCapability,
 	}
+
 	mounter := common.NewSafeMounter()
-	TydsDriver := driver.GetDiskDriver()
+	TydsDriver := driver.NewToyouDriver()
 	TydsDriver.InitDiskDriver(diskDriverInput)
-	rpcserver.Run(TydsDriver, tydsManager, mounter, *endpoint)
+	rpcserver.Run(TydsDriver, tydsManager, mounter, config.Endpoint)
 }
