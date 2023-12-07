@@ -1,548 +1,358 @@
 package rpcserver
 
 import (
-	"fmt"
-	"os"
-	"strconv"
-	"strings"
+	"context"
 
-	"toyou_csi/pkg/common"
 	"toyou_csi/pkg/driver"
 	"toyou_csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/mount"
-	"k8s.io/kubernetes/pkg/util/resizefs"
-	"k8s.io/kubernetes/pkg/volume"
 )
 
+// NodeServer is the server API for Node service.
 type NodeServer struct {
-	driver  *driver.ToyouDriver
-	mounter *mount.SafeFormatAndMount
-	locks   *common.ResourceLocks
-	manager service.TydsManager
+	Driver      *driver.ToyouDriver
+	TydsManager service.TydsManager
 }
 
-// NewNodeServer
-// Create node server
-func NewNodeServer(d *driver.ToyouDriver, m service.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
+// NewNodeServer creates a new NodeServer.
+func NewNodeServer(d *driver.ToyouDriver, tm service.TydsManager) *NodeServer {
 	return &NodeServer{
-		driver:  d,
-		manager: m,
-		mounter: mnt,
-		locks:   common.NewResourceLocks(),
+		Driver:      d,
+		TydsManager: tm,
 	}
 }
 
-// csi.NodeStageVolumeRequest: 	volume id			+ Required
-//
-//	stage target path	+ Required
-//	volume capability	+ Required
-func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse,
-	error) {
-	funcName := "NodeStageVolume"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	if flag := ns.driver.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME); !flag {
-		return nil, status.Error(codes.Unimplemented, "Node has not stage capability")
-	}
-	// 0. Preflight
-	// check arguments
-	if len(req.GetVolumeId()) == 0 {
+// NodeStageVolume stages a volume to a staging path.
+func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+	klog.Info("NodeStageVolume called")
+	// 1. Validate the request
+	if req.GetVolumeId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
-	if len(req.GetStagingTargetPath()) == 0 {
+	if req.GetStagingTargetPath() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Staging target path missing in request")
+	}
+	if req.GetVolumeCapability() == nil {
+		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
+	}
+
+	volumeID := req.GetVolumeId()
+	stagingTargetPath := req.GetStagingTargetPath()
+	volCap := req.GetVolumeCapability()
+
+	// 2. Verify if the volume is already staged
+	isStaged, err := isVolumeStaged(volumeID, stagingTargetPath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to verify if volume is staged: %v", err)
+	}
+	if isStaged {
+		klog.Infof("Volume %s is already staged at path %s", volumeID, stagingTargetPath)
+		return &csi.NodeStageVolumeResponse{}, nil
+	}
+
+	// 3. Fetch the volume from the storage backend
+	volume, err := ns.TydsManager.FindVolume(volumeID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to find volume %s: %v", volumeID, err)
+	}
+	if volume == nil {
+		return nil, status.Errorf(codes.NotFound, "Volume %s not found", volumeID)
+	}
+
+	// 4. Prepare for staging the volume
+	// This step might include fetching necessary volume information like device path, etc.
+	// For example, you might need to find the device path of the volume to mount it.
+
+	devicePath := getDevicePath(volume) // Replace with actual logic to get the device path
+
+	// 5. Mount the volume to the staging path
+	// You may need to handle different VolumeAccessModes and filesystem types.
+	// The following is a generic mount operation:
+	if err := mountVolume(stagingTargetPath, devicePath, volCap); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to mount volume %s at path %s: %v", volumeID, stagingTargetPath, err)
+	}
+	return &csi.NodeStageVolumeResponse{}, nil
+}
+
+// NodeUnstageVolume unstages a volume from a staging path.
+func (ns *NodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	klog.Info("NodeUnstageVolume called")
+	// Implement your logic here
+	return &csi.NodeUnstageVolumeResponse{}, nil
+}
+
+// NodeGetCapabilities returns the supported capabilities of the node server.
+func (ns *NodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	klog.Info("NodeGetCapabilities called")
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: []*csi.NodeServiceCapability{
+			{
+				Type: &csi.NodeServiceCapability_Rpc{
+					Rpc: &csi.NodeServiceCapability_RPC{
+						Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+					},
+				},
+			},
+			// Add other capabilities as needed
+		},
+	}, nil
+}
+
+// NodePublishVolume mounts the volume to the target path.
+func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	klog.Info("NodePublishVolume called")
+
+	// 1. Validate the request
+	if req.GetVolumeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if req.GetTargetPath() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 	if req.GetVolumeCapability() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
 	}
-	// set parameter
-	volumeId := req.GetVolumeId()
-	targetPath := req.GetStagingTargetPath()
 
-	// skip staging if volume is in block mode
-	if req.GetVolumeCapability().GetBlock() != nil {
-		klog.Infof("Skipping staging of volume %s on path %s since it's in block mode", volumeId, targetPath)
-		return &csi.NodeStageVolumeResponse{}, nil
-	}
-
-	// ensure one call in-flight
-	klog.Infof("Try to lock resource %s", volumeId)
-	if acquired := ns.locks.TryAcquire(volumeId); !acquired {
-		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
-	}
-	defer ns.locks.Release(volumeId)
-	// set fsType
-	fsType := req.GetVolumeCapability().GetMount().GetFsType()
-
-	// Check volume exist
-	volInfo, err := ns.manager.FindVolume(volumeId)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if volInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeId)
-	}
-	// 1. Mount
-	// if volume already mounted
-	notMnt, err := mount.New("").IsLikelyNotMountPoint(targetPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			if err = os.MkdirAll(targetPath, 0750); err != nil {
-				return nil, status.Error(codes.Internal, err.Error())
-			}
-			notMnt = true
-		} else {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-	}
-	// already mount
-	if !notMnt {
-		return &csi.NodeStageVolumeResponse{}, nil
-	}
-
-	// get device path
-	devicePath := ""
-	devicePrefix := "/dev/disk/by-id/virtio-"
-	if volInfo.Instance != nil && volInfo.Instance.Device != nil && *volInfo.Instance.Device != "" {
-		// devicePath = *volInfo.Instance.Device
-		devicePath = devicePrefix + volumeId
-		klog.Infof("Find volume %s's device path is %s", volumeId, devicePath)
-	} else {
-		return nil, status.Errorf(codes.Internal, "Cannot find device path of volume %s", volumeId)
-	}
-
-	// do mount
-	klog.Infof("Mounting %s to %s format %s...", volumeId, targetPath, fsType)
-	if err := ns.mounter.FormatAndMount(devicePath, targetPath, fsType, []string{}); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	klog.Infof("Mount %s to %s succeed", volumeId, targetPath)
-	return &csi.NodeStageVolumeResponse{}, nil
-}
-
-// This operation MUST be idempotent
-// csi.NodeUnstageVolumeRequest:	volume id	+ Required
-//
-//	target path	+ Required
-//
-// In block volume mode, the target path is never mounted to
-// so this call will be a no-op
-func (ns *NodeServer) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.
-	NodeUnstageVolumeResponse, error) {
-	funcName := "NodeUnstageVolume"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	if flag := ns.driver.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME); !flag {
-		return nil, status.Error(codes.Unimplemented, "Node has not unstage capability")
-	}
-	// 0. Preflight
-	// check arguments
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-	if len(req.GetStagingTargetPath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
-	// set parameter
-	volumeId := req.GetVolumeId()
-	targetPath := req.GetStagingTargetPath()
-	// ensure one call in-flight
-	klog.Infof("Try to lock resource %s", volumeId)
-	if acquired := ns.locks.TryAcquire(volumeId); !acquired {
-		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
-	}
-	defer ns.locks.Release(volumeId)
-	// Check volume exist
-	volInfo, err := ns.manager.FindVolume(volumeId)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if volInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeId)
-	}
-
-	// 1. Unmount
-	// check targetPath is mounted
-	// For idempotent:
-	// If the volume corresponding to the volume id is not staged to the staging target path,
-	// the plugin MUST reply 0 OK.
-	notMnt, err := ns.mounter.IsLikelyNotMountPoint(targetPath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if notMnt {
-		return &csi.NodeUnstageVolumeResponse{}, nil
-	}
-	// count mount point
-	_, cnt, err := mount.GetDeviceNameFromMount(ns.mounter, targetPath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	// do unmount
-	err = ns.mounter.Unmount(targetPath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	klog.Infof("Disk volume %s has been unmounted.", volumeId)
-	cnt--
-	klog.Infof("Disk volume mount count: %d", cnt)
-	if cnt > 0 {
-		klog.Errorf("Volume %s still mounted in instance %s", volumeId, ns.driver.GetInstanceId())
-		return nil, status.Error(codes.Internal, "unmount failed")
-	}
-
-	return &csi.NodeUnstageVolumeResponse{}, nil
-}
-
-func (ns *NodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.
-	NodeGetCapabilitiesResponse, error) {
-	funcName := "NodeGetCapabilities"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	return &csi.NodeGetCapabilitiesResponse{
-		Capabilities: ns.driver.GetNodeCapability(),
-	}, nil
-}
-
-func (ns *NodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
-	funcName := "NodeGetInfo"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	instInfo, err := ns.manager.FindInstance(ns.driver.GetInstanceId())
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if instInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "cannot found instance %s", ns.driver.GetInstanceId())
-	}
-
-	instanceType, ok := driver.InstanceTypeName[driver.InstanceType(*instInfo.InstanceClass)]
-	if !ok {
-		return nil, status.Errorf(codes.InvalidArgument, "unsupported instance type %d", *instInfo.InstanceClass)
-	}
-	top := &csi.Topology{
-		Segments: map[string]string{
-			ns.driver.GetTopologyInstanceTypeKey(): instanceType,
-			ns.driver.GetTopologyZoneKey():         *instInfo.ZoneID,
-		},
-	}
-	return &csi.NodeGetInfoResponse{
-		NodeId:             ns.driver.GetInstanceId(),
-		MaxVolumesPerNode:  ns.driver.GetMaxVolumePerNode(),
-		AccessibleTopology: top,
-	}, nilf
-}
-
-// NodeExpandVolume will expand filesystem of volume.
-// Input Parameters:
-//
-//	volume id: REQUIRED
-//	volume path: REQUIRED
-func (ns *NodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (
-	*csi.NodeExpandVolumeResponse, error) {
-	funcName := "NodeExpandVolume"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	// 0. Preflight
-	// check arguments
-	klog.Info("Check input arguments")
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-	if len(req.GetVolumePath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume path missing in request")
-	}
-	requestSizeBytes, err := common.GetRequestSizeBytes(req.GetCapacityRange())
-	if err != nil {
-		return nil, status.Error(codes.OutOfRange, err.Error())
-	}
-	// Set parameter
-	volumeId := req.GetVolumeId()
-	volumePath := req.GetVolumePath()
-	// ensure one call in-flight
-	klog.Infof("Try to lock resource %s", volumeId)
-	if acquired := ns.locks.TryAcquire(volumeId); !acquired {
-		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
-	}
-	defer ns.locks.Release(volumeId)
-	// Check volume exist
-	klog.Infof("Get volume %s info", volumeId)
-	volInfo, err := ns.manager.FindVolume(volumeId)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if volInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeId)
-	}
-	// get device path
-	devicePath := ""
-	if volInfo.Instance != nil && volInfo.Instance.Device != nil && *volInfo.Instance.Device != "" {
-		devicePath = *volInfo.Instance.Device
-		klog.Infof("Find volume %s's device path is %s", volumeId, devicePath)
-	} else {
-		return nil, status.Errorf(codes.Internal, "Cannot find device path of volume %s", volumeId)
-	}
-
-	resizer := resizefs.NewResizeFs(ns.mounter)
-	klog.Infof("Resize file system device %s, mount path %s ...", devicePath, volumePath)
-	ok, err := resizer.Resize(devicePath, volumePath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	if !ok {
-		return nil, status.Error(codes.Internal, "failed to expand volume filesystem")
-	}
-	klog.Info("Succeed to resize file system")
-
-	//  Check the block size
-	blkSizeBytes, err := ns.getBlockSizeBytes(devicePath)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal,
-			"expand volume error when getting size of block volume at path %s: %v", devicePath, err)
-	}
-	klog.Infof("Block size %d Byte, request size %d Byte", blkSizeBytes, requestSizeBytes)
-
-	if blkSizeBytes < requestSizeBytes {
-		// It's possible that the somewhere the volume size was rounded up, getting more size than requested is a success
-		return nil, status.Errorf(codes.Internal, "resize requested for %v but after resize volume was size %v",
-			requestSizeBytes, blkSizeBytes)
-	}
-	return &csi.NodeExpandVolumeResponse{
-		CapacityBytes: blkSizeBytes,
-	}, nil
-}
-
-// NodeGetVolumeStats
-// Input Arguments:
-//
-//	volume id: REQUIRED
-//	volume path: REQUIRED
-func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context,
-	req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
-	funcName := "NodeGetVolumeStats"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	// 0. Preflight
-	// check arguments
-	klog.Infof("%s: Check input arguments", hash)
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
-	}
-	if len(req.GetVolumePath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume path missing in request")
-	}
-
-	volumePath := req.GetVolumePath()
-	// block mode volume's stats can't be retrieved like those filesystem volumes
-	pathType, err := ns.mounter.GetFileType(volumePath)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to determine volume %s 's mode: %v", volumePath, err)
-	}
-	isBlockMode := pathType == mount.FileTypeBlockDev
-
-	// Get metrics
-	if isBlockMode {
-		blockSize, err := ns.getBlockSizeBytes(volumePath)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to get block capacity on path %s: %v", volumePath, err)
-		}
-		return &csi.NodeGetVolumeStatsResponse{
-			Usage: []*csi.VolumeUsage{
-				{
-					Unit:  csi.VolumeUsage_BYTES,
-					Total: blockSize,
-				},
-			},
-		}, nil
-	}
-
-	metricsStatFs := volume.NewMetricsStatFS(volumePath)
-	metrics, err := metricsStatFs.GetMetrics()
-	if err != nil {
-		return nil, status.Error(codes.Unknown, err.Error())
-	}
-	klog.Infof("%s: Succeed to get metrics", hash)
-	return &csi.NodeGetVolumeStatsResponse{
-		Usage: []*csi.VolumeUsage{
-			{
-				Available: metrics.Available.Value(),
-				Total:     metrics.Capacity.Value(),
-				Used:      metrics.Used.Value(),
-				Unit:      csi.VolumeUsage_BYTES,
-			},
-			{
-				Available: metrics.InodesFree.Value(),
-				Total:     metrics.Inodes.Value(),
-				Used:      metrics.InodesUsed.Value(),
-				Unit:      csi.VolumeUsage_INODES,
-			},
-		},
-	}, nil
-}
-
-// This operation MUST be idempotent
-// If the volume corresponding to the volume id has already been published at the specified target path,
-// and is compatible with the specified volume capability and readonly flag, the plugin MUST reply 0 OK.
-// csi.NodePublishVolumeRequest:	volume id			+ Required
-//
-//	target path			+ Required
-//	volume capability	+ Required
-//	read only			+ Required (This field is NOT provided when requesting in Kubernetes)
-func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.
-	NodePublishVolumeResponse, error) {
-	funcName := "NodePublishVolume"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	// 0. Preflight
-	// check volume id
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume id missing in request")
-	}
-	// check target path
-	if len(req.GetTargetPath()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
-	}
-	// Check volume capability
-	if req.GetVolumeCapability() == nil {
-		return nil, status.Error(codes.InvalidArgument, "Volume capabilities missing in request")
-	} else if !ns.driver.ValidateVolumeCapability(req.GetVolumeCapability()) {
-		return nil, status.Error(codes.FailedPrecondition, "Exceed capabilities")
-	}
-	// check stage path
-	if len(req.GetStagingTargetPath()) == 0 {
-		return nil, status.Error(codes.FailedPrecondition, "Staging target path not set")
-	}
-	// set parameter
+	volumeID := req.GetVolumeId()
 	targetPath := req.GetTargetPath()
-	stagePath := req.GetStagingTargetPath()
-	volumeId := req.GetVolumeId()
+	volCap := req.GetVolumeCapability()
 
-	// check if volume exists
-	volInfo, err := ns.manager.FindVolume(volumeId)
+	// 2. Check if the volume is already published at the target path
+	isPublished, err := isVolumePublished(volumeID, targetPath)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "Failed to check if volume is published: %v", err)
 	}
-	if volInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeId)
-	}
-
-	// ensure one call in-flight
-	klog.Infof("Try to lock resource %s", volumeId)
-	if acquired := ns.locks.TryAcquire(volumeId); !acquired {
-		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
-	}
-	defer ns.locks.Release(volumeId)
-
-	// determine if volume is in block mode
-	isBlockMode := req.GetVolumeCapability().GetBlock() != nil
-
-	// if volume is in block mode, the source path of mount is the attached device path
-	// rather than the staging path
-	if isBlockMode {
-		stagePath = *volInfo.Instance.Device
-	}
-
-	// get fsType of volume
-	// in block mode, this is a nil, which will also work as expected in following mounting
-	fsType := req.GetVolumeCapability().GetMount().GetFsType()
-
-	// according to the CSI spec, CO is only responsible for ensuring the existence of the parent dir of the target path
-	if err := ns.createTargetMountPathIfNotExists(targetPath, isBlockMode); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	// check wether targetPath is mounted
-	notMnt, err := ns.mounter.IsNotMountPoint(targetPath)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	// For idempotent:
-	// If the volume corresponding to the volume id has already been published at the specified target path,
-	// and is compatible with the specified volume capability and readonly flag, the plugin MUST reply 0 OK.
-	if !notMnt {
+	if isPublished {
+		klog.Infof("Volume %s is already published at path %s", volumeID, targetPath)
 		return &csi.NodePublishVolumeResponse{}, nil
 	}
 
-	// set bind mount options
-	options := []string{"bind"}
-	if req.GetReadonly() {
-		options = append(options, "ro")
+	// 3. Fetch the volume from the storage backend
+	volume, err := ns.TydsManager.FindVolume(volumeID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to find volume %s: %v", volumeID, err)
 	}
-	klog.Infof("Bind mount %s at %s, isBlockMode: %t, fsType %s, options %v ...", stagePath, targetPath, isBlockMode, fsType, options)
-	if err := ns.mounter.Mount(stagePath, targetPath, fsType, options); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+	if volume == nil {
+		return nil, status.Errorf(codes.NotFound, "Volume %s not found", volumeID)
 	}
-	klog.Infof("Mount bind %s at %s succeed", stagePath, targetPath)
+
+	// 4. Mount the volume to the target path
+	// Implement the mounting logic here. The details depend on the volume type and access mode.
+	if err := mountVolumeToTarget(targetPath, volume, volCap); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to mount volume %s at path %s: %v", volumeID, targetPath, err)
+	}
+
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-// csi.NodeUnpublishVolumeRequest:	volume id	+ Required
-//
-//	target path	+ Required
-func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.
-	NodeUnpublishVolumeResponse, error) {
-	funcName := "NodeUnpublishVolume"
-	info, hash := common.EntryFunction(funcName)
-	defer klog.Info(common.ExitFunction(funcName, hash))
-	klog.Info(info)
-	// 0. Preflight
-	// check arguments
-	if len(req.GetTargetPath()) == 0 {
+// NodeUnpublishVolume unmounts the volume from the target path.
+func (ns *NodeServer) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	klog.Info("NodeUnpublishVolume called")
+
+	// 1. Validate the request
+	if req.GetVolumeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if req.GetTargetPath() == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
-	if len(req.GetVolumeId()) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Volume id missing in request")
-	}
-	// set parameter
-	volumeId := req.GetVolumeId()
+
+	volumeID := req.GetVolumeId()
 	targetPath := req.GetTargetPath()
-	// ensure one call in-flight
-	klog.Infof("Try to lock resource %s", volumeId)
-	if acquired := ns.locks.TryAcquire(volumeId); !acquired {
-		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
-	}
-	defer ns.locks.Release(volumeId)
-	// Check volume exist
-	volInfo, err := ns.manager.FindVolume(volumeId)
+
+	// 2. Check if the volume is actually published at the target path
+	isPublished, err := isVolumePublished(volumeID, targetPath)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Errorf(codes.Internal, "Failed to check if volume is published: %v", err)
 	}
-	if volInfo == nil {
-		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeId)
+	if !isPublished {
+		klog.Infof("Volume %s is not published at path %s", volumeID, targetPath)
+		return &csi.NodeUnpublishVolumeResponse{}, nil
 	}
 
-	// 1. Unmount
-	err = mount.CleanupMountPoint(targetPath, ns.mounter.Interface, true)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Unmount target path %s error: %v", targetPath, err)
+	// 3. Unmount the volume from the target path
+	if err := unmountVolume(targetPath); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to unmount volume %s from path %s: %v", volumeID, targetPath, err)
 	}
-	klog.Infof("Unbound mount volume succeed")
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-func (ns *NodeServer) getBlockSizeBytes(devicePath string) (int64, error) {
-	output, err := ns.mounter.Exec.Run("blockdev", "--getsize64", devicePath)
-	if err != nil {
-		return -1, fmt.Errorf("error when getting size of block volume at path %s: output: %s, err: %v", devicePath, string(output), err)
+// NodeGetVolumeStats returns statistics about the volume.
+func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVolumeStatsRequest) (*csi.NodeGetVolumeStatsResponse, error) {
+	klog.Info("NodeGetVolumeStats called")
+
+	// 1. 验证请求
+	if req.GetVolumeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
 	}
-	strOut := strings.TrimSpace(string(output))
-	gotSizeBytes, err := strconv.ParseInt(strOut, 10, 64)
-	if err != nil {
-		return -1, fmt.Errorf("failed to parse size %s into int a size", strOut)
+	if req.GetVolumePath() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume path missing in request")
 	}
-	return gotSizeBytes, nil
+
+	volumeID := req.GetVolumeId()
+	volumePath := req.GetVolumePath()
+
+	// 2. 确保卷在指定路径上已经挂载
+	isMounted, err := isVolumeMounted(volumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to check if volume is mounted: %v", err)
+	}
+	if !isMounted {
+		return nil, status.Errorf(codes.NotFound, "Volume %s not mounted at path %s", volumeID, volumePath)
+	}
+
+	// 3. 获取卷的统计信息
+	stats, err := getVolumeStats(volumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get stats for volume %s: %v", volumeID, err)
+	}
+
+	// 4. 创建并返回响应
+	return &csi.NodeGetVolumeStatsResponse{
+		Usage: []*csi.VolumeUsage{
+			{
+				Available: stats.Available,
+				Total:     stats.Total,
+				Used:      stats.Used,
+				Unit:      csi.VolumeUsage_BYTES,
+			},
+			// 可以添加其他统计信息，如 IOPS 或吞吐量
+		},
+	}, nil
+}
+
+// NodeExpandVolume expands the volume on the node.
+func (ns *NodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+	klog.Info("NodeExpandVolume called")
+
+	// 1. 验证请求
+	if req.GetVolumeId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if req.GetVolumePath() == "" {
+		return nil, status.Error(codes.InvalidArgument, "Volume path missing in request")
+	}
+
+	volumeID := req.GetVolumeId()
+	volumePath := req.GetVolumePath()
+	requiredBytes := req.GetCapacityRange().GetRequiredBytes()
+
+	// 2. 确保卷在指定路径上已经挂载
+	isMounted, err := isVolumeMounted(volumePath)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to check if volume is mounted: %v", err)
+	}
+	if !isMounted {
+		return nil, status.Errorf(codes.NotFound, "Volume %s not mounted at path %s", volumeID, volumePath)
+	}
+
+	// 3. 执行卷扩展
+	if err := expandVolume(volumePath, requiredBytes); err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to expand volume %s: %v", volumeID, err)
+	}
+
+	return &csi.NodeExpandVolumeResponse{}, nil
+}
+
+// NodeGetInfo provides information about the node.
+func (ns *NodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+	klog.Info("NodeGetInfo called")
+
+	// 获取节点的相关信息。这可能包括节点ID、拓扑信息等。
+	// 这里的具体实现依赖于你的环境和需求。
+	nodeID, err := getNodeID()
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to get node ID: %v", err)
+	}
+
+	topology := getTopologyInfo()
+
+	return &csi.NodeGetInfoResponse{
+		NodeId:            nodeID,
+		MaxVolumesPerNode: getMaxVolumesPerNode(),
+		AccessibleTopology: &csi.Topology{
+			Segments: topology,
+		},
+	}, nil
+}
+
+// Helper functions
+
+func getNodeID() (string, error) {
+	// 实现逻辑以获取节点ID
+	// 例如，可以从 Kubernetes 节点信息或特定于环境的配置中获取
+	return "node-123", nil
+}
+
+func getTopologyInfo() map[string]string {
+	// 实现逻辑以获取拓扑信息
+	// 这可能包括区域、可用区等信息
+	return map[string]string{
+		"topology.kubernetes.io/region": "us-east-1",
+		"topology.kubernetes.io/zone":   "us-east-1a",
+	}
+}
+
+func getMaxVolumesPerNode() int64 {
+	// 实现逻辑以返回节点上允许的最大卷数
+	// 这个值可能取决于特定的环境或硬件限制
+	return 255
+}
+
+// Helper functions to check if volume is already staged, to get device path, and to mount the volume
+// You will need to implement these functions based on your storage backend.
+// Helper functions
+func expandVolume(volumePath string, requiredBytes int64) error {
+	// 实现扩展卷的逻辑
+	// 这可能包括文件系统的调整，或者其他与存储相关的操作
+	return nil
+}
+
+func isVolumeMounted(volumePath string) (bool, error) {
+	// 实现逻辑以检查卷是否已挂载
+	return false, nil
+}
+
+type VolumeStats struct {
+	Available, Total, Used int64
+}
+
+func getVolumeStats(volumePath string) (*VolumeStats, error) {
+	// 实现逻辑以获取卷的统计信息
+	return &VolumeStats{}, nil
+}
+
+func isVolumePublished(volumeID, targetPath string) (bool, error) {
+	// Implement logic to check if the volume is published
+	return false, nil
+}
+
+func unmountVolume(targetPath string) error {
+	// Implement the logic to unmount the volume
+	return nil
+}
+
+func mountVolumeToTarget(targetPath string, volume *service.Volume, volCap *csi.VolumeCapability) error {
+	// Implement the logic to mount the volume to the target path
+	return nil
+}
+
+func isVolumeStaged(volumeID, targetPath string) (bool, error) {
+	// Implement logic to check if the volume is already staged
+	return false, nil
+}
+
+func getDevicePath(volume *service.Volume) string {
+	// Implement logic to fetch the device path of the volume
+	return ""
+}
+
+func mountVolume(targetPath, devicePath string, volCap *csi.VolumeCapability) error {
+	// Implement the logic to mount the volume
+	return nil
 }

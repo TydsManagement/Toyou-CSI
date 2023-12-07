@@ -34,3 +34,11 @@ func convstr(s string) string {
 	}
 	return s
 }
+
+// Volume represents a storage volume with various attributes.
+type Volume struct {
+	ID         string // Unique identifier for the volume
+	Size       int64  // Size of the volume in bytes
+	VolumeType string // Type of the volume (e.g., SSD, HDD)
+	// Add other fields as necessary
+}
