@@ -31,7 +31,7 @@ import (
 )
 
 // Run initializes and starts the CSI driver's gRPC server.
-func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, endpoint string) {
+func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter, endpoint string) {
 	// Listen on the specified endpoint
 	listener, err := net.Listen("tcp", endpoint)
 	if err != nil {

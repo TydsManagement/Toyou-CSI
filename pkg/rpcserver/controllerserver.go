@@ -49,12 +49,9 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
-	replicas := 1         // Assuming a default value, adjust as needed.
-	volType := 0          // Assuming a default value, adjust as needed.
-	zone := ""            // Extract from parameters or other parts of the request as needed.
-	containerConfID := "" // Extract as needed.
+	poolName =
 
-	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize), replicas, volType, zone, containerConfID)
+	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize), poolName, stripSize)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create volume: %v", err)
 	}

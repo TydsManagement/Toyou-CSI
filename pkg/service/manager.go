@@ -19,12 +19,11 @@ package service
 type VolumeManager interface {
 	FindVolume(volId string) (*interface{}, error)
 	FindVolumeByName(volName string) (interface{}, error)
-	CreateVolume(volName string, requestSize int, replicas int, volType int, zone string, containerConfID string) (volId string, err error)
+	CreateVolume(volName string, requestSize int, poolName string, stripSize int) (volId string, err error)
 	DeleteVolume(volId string) (err error)
 	AttachVolume(volId string, instanceId string) (err error)
 	DetachVolume(volId string, instanceId string) (err error)
 	ResizeVolume(volId string, requestSize int) (err error)
-	CloneVolume(volName string, volType int, srcVolId string, zone string) (volId string, err error)
 }
 
 type SnapshotManager interface {

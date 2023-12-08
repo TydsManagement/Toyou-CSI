@@ -55,13 +55,21 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 
 	// 3. Fetch the volume from the storage backend
-	volume, err := ns.TydsManager.FindVolume(volumeID)
+	volumeInterface, err := ns.TydsManager.FindVolume(volumeID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to find volume %s: %v", volumeID, err)
 	}
-	if volume == nil {
+	if volumeInterface == nil {
 		return nil, status.Errorf(codes.NotFound, "Volume %s not found", volumeID)
 	}
+
+	// Dereference the pointer and then use type assertion
+	volume, ok := (*volumeInterface).(*service.Volume)
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "Type assertion for volume %s failed", volumeID)
+	}
+
+	// Now you can use `volume` as *service.Volume
 
 	// 4. Prepare for staging the volume
 	// This step might include fetching necessary volume information like device path, etc.
@@ -132,13 +140,23 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	// 3. Fetch the volume from the storage backend
-	volume, err := ns.TydsManager.FindVolume(volumeID)
+	volumeInterface, err := ns.TydsManager.FindVolume(volumeID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to find volume %s: %v", volumeID, err)
 	}
-	if volume == nil {
+	if volumeInterface == nil {
 		return nil, status.Errorf(codes.NotFound, "Volume %s not found", volumeID)
 	}
+
+	// Dereference the pointer and then use type assertion
+	volume, ok := (*volumeInterface).(*service.Volume)
+	if !ok {
+		return nil, status.Errorf(codes.Internal, "Type assertion for volume %s failed", volumeID)
+	}
+
+	// Now you can use `volume` as *service.Volume
+
+	// Now you can use `volume` as *service.Volume
 
 	// 4. Mount the volume to the target path
 	// Implement the mounting logic here. The details depend on the volume type and access mode.

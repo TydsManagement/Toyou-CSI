@@ -169,21 +169,33 @@ func getLocalIP() string {
 // 	// Use the service to make requests
 // }
 
-func (c *TydsClient) GetPools() []interface{} {
+// GetPools 获取所有存储池的列表。
+func (c *TydsClient) GetPools() ([]map[string]interface{}, error) {
 	url := "pool/pool/"
 	response, err := c.SendHTTPAPI(url, nil, "GET")
 	if err != nil {
-		// Handle API request failure
-		panic(err)
+		// 返回错误而不是 panic
+		return nil, fmt.Errorf("failed to get pools: %v", err)
 	}
 
 	poolList, ok := response.(map[string]interface{})["poolList"].([]interface{})
 	if !ok {
-		// Handle poolList not found in the response
-		panic("poolList not found in the response")
+		// 返回错误而不是 panic
+		return nil, fmt.Errorf("poolList not found in the response")
 	}
 
-	return poolList
+	// 将 poolList 转换为 []map[string]interface{}
+	var pools []map[string]interface{}
+	for _, item := range poolList {
+		pool, ok := item.(map[string]interface{})
+		if !ok {
+			// 如果某个元素无法转换，跳过该元素
+			continue
+		}
+		pools = append(pools, pool)
+	}
+
+	return pools, nil
 }
 
 func (c *TydsClient) GetVolume(volID string) (interface{}, error) {
@@ -220,7 +232,7 @@ func (c *TydsClient) GetVolumes() []interface{} {
 	return volList
 }
 
-func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize int) interface{} {
+func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize int) (string, error) {
 	url := "block/block/"
 	params := map[string]interface{}{
 		"blockName": volName,
@@ -230,11 +242,14 @@ func (c *TydsClient) CreateVolume(volName string, size int, poolName string, str
 	}
 	response, err := c.SendHTTPAPI(url, params, "POST")
 	if err != nil {
-		// Handle API request failure
-		panic(err)
+		return "", fmt.Errorf("failed to create volume: %v", err)
+	}
+	volId, ok := response.(map[string]interface{})["volId"].(string)
+	if !ok {
+		return "", fmt.Errorf("failed to parse volume ID from response")
 	}
 
-	return response
+	return volId, nil
 }
 
 func (c *TydsClient) DeleteVolume(volID string) {
@@ -246,18 +261,23 @@ func (c *TydsClient) DeleteVolume(volID string) {
 	}
 }
 
-func (c *TydsClient) ExtendVolume(volName string, poolName string, sizeMB int) {
+// ExtendVolume 在给定的存储池中扩展指定的卷。
+func (c *TydsClient) ExtendVolume(volName string, poolName string, sizeMB int) error {
 	url := fmt.Sprintf("block/block/%s/", volName)
 	params := map[string]interface{}{
 		"blockName": volName,
 		"sizeMB":    sizeMB,
 		"poolName":  poolName,
 	}
+
 	_, err := c.SendHTTPAPI(url, params, "PUT")
 	if err != nil {
-		// Handle API request failure
-		panic(err)
+		// 返回错误而不是直接触发 panic
+		return fmt.Errorf("failed to extend volume: %v", err)
 	}
+
+	// 如果一切顺利，返回 nil 表示没有错误发生
+	return nil
 }
 
 func (c *TydsClient) CreateCloneVolume(poolName, blockName, blockID, targetPoolName, targetPoolID, targetBlockName string) {
