@@ -30,12 +30,18 @@ import (
 	"k8s.io/klog"
 )
 
-// 定义一个包含所有配置项的结构体
+const (
+	version              = "unknown"
+	defaultProvisionName = "disk.csi.toyou.com"
+	defaultConfigPath    = "/etc/config/config.yaml"
+)
+
 type Config struct {
 	Version       string
 	ProvisionName string
 	ConfigPath    string
 	Endpoint      string
+	maxVolume     int64
 }
 
 func main() {
@@ -44,19 +50,15 @@ func main() {
 	rand.NewSource(time.Now().UTC().UnixNano()) // 生成随机数种子
 
 	config := &Config{
-		Version:       "1.0.0",
-		ProvisionName: "disk.csi.toyou.com",
-		ConfigPath:    getFlagValue("config", "/etc/config/config.yaml"),
-		Endpoint:      getFlagValue("endpoint", "unix:///tmp/csi.sock"),
+		Version:       version,
+		ProvisionName: defaultProvisionName,
+		ConfigPath:    common.GetFlagValue("config", defaultConfigPath),
+		Endpoint:      common.GetFlagValue("endpoint", "unix:///tmp/csi.sock"),
+		maxVolume:     common.GetInt64FlagValue("maxvolume", 255),
 	}
 
 	mainProcess(config)
 	os.Exit(0)
-}
-
-// 从flag包中获取命令行参数值的辅助函数
-func getFlagValue(name string, defaultValue string) string {
-	return flag.Lookup(name).Value.(flag.Getter).Get().(string)
 }
 
 func mainProcess(config *Config) {
@@ -69,6 +71,7 @@ func mainProcess(config *Config) {
 	diskDriverInput := &driver.InitDiskDriverInput{
 		Name:          config.ProvisionName,
 		Version:       config.Version,
+		MaxVolume:     config.maxVolume,
 		VolumeCap:     driver.DefaultVolumeAccessModeType,
 		ControllerCap: driver.DefaultControllerServiceCapability,
 		NodeCap:       driver.DefaultNodeServiceCapability,

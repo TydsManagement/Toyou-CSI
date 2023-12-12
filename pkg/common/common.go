@@ -1,10 +1,14 @@
 package common
 
 import (
+	"flag"
 	"fmt"
 	"hash/fnv"
+	"strconv"
 	"sync"
 	"time"
+
+	"k8s.io/klog"
 )
 
 type retryLimiter struct {
@@ -67,4 +71,25 @@ func ExitFunction(functionName, hash string) (info string) {
 	current := time.Now()
 	return fmt.Sprintf("=============== exit %s at %s hash %s ===============", functionName,
 		current.Format(DefaultTimeFormat), hash)
+}
+
+// 从flag包中获取命令行参数值的辅助函数
+func GetFlagValue(name string, defaultValue string) string {
+	if flagVal := flag.Lookup(name); flagVal != nil {
+		return flagVal.Value.(flag.Getter).Get().(string)
+	}
+	return defaultValue
+}
+
+// 从flag包中获取int64类型的命令行参数值的辅助函数
+func GetInt64FlagValue(name string, defaultValue int64) int64 {
+	if flagVal := flag.Lookup(name); flagVal != nil {
+		value, err := strconv.ParseInt(flagVal.Value.(flag.Getter).Get().(string), 10, 64)
+		if err != nil {
+			klog.Errorf("Error parsing flag %s: %v", name, err)
+			return defaultValue
+		}
+		return value
+	}
+	return defaultValue
 }
