@@ -256,9 +256,10 @@ func (c *TydsClient) DeleteVolume(volID string) {
 	url := fmt.Sprintf("block/block/forcedelete/?id=%s", volID)
 	_, err := c.SendHTTPAPI(url, nil, "DELETE")
 	if err != nil {
-		// Handle API request failure
-		panic(err)
+		// 返回错误而不是直接触发 panic
+		return fmt.Errorf("failed to delete volume: %v", err)
 	}
+	return nil
 }
 
 // ExtendVolume 在给定的存储池中扩展指定的卷。

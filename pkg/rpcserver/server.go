@@ -28,10 +28,11 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/util/mount"
 )
 
 // Run initializes and starts the CSI driver's gRPC server.
-func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter, endpoint string) {
+func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter *mount.SafeFormatAndMount, endpoint string) {
 	// Listen on the specified endpoint
 	listener, err := net.Listen("tcp", endpoint)
 	if err != nil {
@@ -44,7 +45,7 @@ func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter, e
 	// Register the CSI services
 	csi.RegisterIdentityServer(server, NewIdentityServer(driver))
 	csi.RegisterControllerServer(server, NewControllerServer(driver, tydsManager))
-	csi.RegisterNodeServer(server, NewNodeServer(driver, tydsManager))
+	csi.RegisterNodeServer(server, NewNodeServer(driver, tydsManager, mounter))
 
 	// Start serving incoming connections
 	go func() {

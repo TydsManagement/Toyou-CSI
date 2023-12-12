@@ -49,7 +49,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
-	poolName =
+	poolName = config.PoolName
 
 	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize), poolName, stripSize)
 	if err != nil {

@@ -17,7 +17,7 @@ limitations under the License.
 package service
 
 type VolumeManager interface {
-	FindVolume(volId string) (*interface{}, error)
+	FindVolume(volId string) (interface{}, error)
 	FindVolumeByName(volName string) (interface{}, error)
 	CreateVolume(volName string, requestSize int, poolName string, stripSize int) (volId string, err error)
 	DeleteVolume(volId string) (err error)
