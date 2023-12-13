@@ -240,25 +240,21 @@ func (c *TydsClient) CreateVolume(volName string, size int, poolName string, str
 		"poolName":  poolName,
 		"stripSize": stripeSize,
 	}
-	response, err := c.SendHTTPAPI(url, params, "POST")
+	_, err := c.SendHTTPAPI(url, params, "POST")
 	if err != nil {
 		return "", fmt.Errorf("failed to create volume: %v", err)
 	}
-	volId, ok := response.(map[string]interface{})["volId"].(string)
-	if !ok {
-		return "", fmt.Errorf("failed to parse volume ID from response")
-	}
-
-	return volId, nil
+	return volName, nil
 }
 
-func (c *TydsClient) DeleteVolume(volID string) {
+func (c *TydsClient) DeleteVolume(volID string) error {
 	url := fmt.Sprintf("block/block/forcedelete/?id=%s", volID)
 	_, err := c.SendHTTPAPI(url, nil, "DELETE")
 	if err != nil {
-		// 返回错误而不是直接触发 panic
+		// 发生错误时返回错误信息
 		return fmt.Errorf("failed to delete volume: %v", err)
 	}
+	// 没有错误时返回 nil
 	return nil
 }
 

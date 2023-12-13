@@ -49,9 +49,8 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
-	poolName = config.PoolName
 
-	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize), poolName, stripSize)
+	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create volume: %v", err)
 	}
@@ -86,10 +85,42 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	klog.Info("ListVolumes called")
 
-	// Implement logic to list all volumes. This will depend on how your storage system manages volume information.
-	// Here we return an empty list as an example.
+	volumeListInterface := cs.TydsManager.ListVolumes()
+
+	entries := make([]*csi.ListVolumesResponse_Entry, 0, len(volumeListInterface))
+	for _, item := range volumeListInterface {
+		volMap, ok := item.(map[string]interface{})
+		if !ok {
+			// 如果无法将item转换为map[string]interface{}，则跳过此项
+			klog.Errorf("Invalid volume format in volume list")
+			continue
+		}
+
+		// 假设VolumeId和CapacityBytes是map中的键
+		volumeId, ok := volMap["name"].(string)
+		if !ok {
+			klog.Errorf("VolumeId is missing or not a string")
+			continue
+		}
+		capacityBytes, ok := volMap["size"].(int64) // 或者是其他你期望的类型
+		if !ok {
+			klog.Errorf("CapacityBytes is missing or not the correct type")
+			continue
+		}
+
+		entry := &csi.ListVolumesResponse_Entry{
+			Volume: &csi.Volume{
+				VolumeId:      volumeId,
+				CapacityBytes: capacityBytes,
+				// 根据需要填充其他字段
+			},
+			// 可以添加状态或其他元数据
+		}
+		entries = append(entries, entry)
+	}
+
 	return &csi.ListVolumesResponse{
-		Entries: []*csi.ListVolumesResponse_Entry{},
+		Entries: entries,
 	}, nil
 }
 
@@ -145,16 +176,7 @@ func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 func (cs *ControllerServer) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	klog.Info("ControllerGetCapabilities called")
 	return &csi.ControllerGetCapabilitiesResponse{
-		Capabilities: []*csi.ControllerServiceCapability{
-			{
-				Type: &csi.ControllerServiceCapability_Rpc{
-					Rpc: &csi.ControllerServiceCapability_RPC{
-						Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
-					},
-				},
-			},
-			// Add other capabilities as needed
-		},
+		Capabilities: cs.Driver.GetControllerCapability(),
 	}, nil
 }
 
@@ -194,29 +216,12 @@ func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 
 // ListSnapshots lists all snapshots, optionally for a specific volume.
 func (cs *ControllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
-	klog.Info("ListSnapshots called")
-
-	// Implement the logic to retrieve and list all snapshots.
-	// This is a simplified example assuming no pagination and only listing all snapshots.
-	return &csi.ListSnapshotsResponse{
-		Entries: []*csi.ListSnapshotsResponse_Entry{
-			// Populate with actual snapshot entries
-		},
-	}, nil
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // GetCapacity returns the capacity of the storage pool.
 func (cs *ControllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	klog.Info("GetCapacity called")
-
-	// Implement logic to return the total capacity of the storage.
-	// This is often a static value for a given storage system or could be calculated based on available resources.
-	// Here we return a placeholder value.
-	totalCapacity := int64(1000000000000) // 1 TB as an example
-
-	return &csi.GetCapacityResponse{
-		AvailableCapacity: totalCapacity,
-	}, nil
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ControllerExpandVolume expands the volume to a new size.

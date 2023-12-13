@@ -19,8 +19,9 @@ package service
 type VolumeManager interface {
 	FindVolume(volId string) (interface{}, error)
 	FindVolumeByName(volName string) (interface{}, error)
-	CreateVolume(volName string, requestSize int, poolName string, stripSize int) (volId string, err error)
+	CreateVolume(volName string, requestSize int) (volId string, err error)
 	DeleteVolume(volId string) (err error)
+	ListVolumes() []interface{}
 	AttachVolume(volId string, instanceId string) (err error)
 	DetachVolume(volId string, instanceId string) (err error)
 	ResizeVolume(volId string, requestSize int) (err error)

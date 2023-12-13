@@ -26,6 +26,8 @@ var _ TydsManager = &Manager{}
 
 type Manager struct {
 	tydsClient *TydsClient
+	poolName   string
+	stripSize  int
 }
 
 func (m *Manager) FindSnapshot(snapID string) (*interface{}, error) {
@@ -111,8 +113,10 @@ func (m *Manager) FindVolumeByName(volName string) (interface{}, error) {
 }
 
 // CreateVolume creates a volume with the specified parameters
-func (m *Manager) CreateVolume(volName string, requestSize int, poolName string, stripSize int) (volId string, err error) {
-
+func (m *Manager) CreateVolume(volName string, requestSize int) (volId string, err error) {
+	// poolName string, stripSize int
+	poolName := m.poolName
+	stripSize := m.stripSize
 	volId, err = m.tydsClient.CreateVolume(volName, requestSize, poolName, stripSize)
 	if err != nil {
 		return "", err
@@ -127,6 +131,11 @@ func (m *Manager) DeleteVolume(volId string) (err error) {
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) ListVolumes() []interface{} {
+	volumeList := m.tydsClient.GetVolumes()
+	return volumeList
 }
 
 // AttachVolume attaches a volume to a specified instance
@@ -354,6 +363,8 @@ func NewManagerClientFromConfig(configPath string) (*Manager, error) {
 	managerClient := NewTydsClient(config.Hostname, config.Port, config.Username, config.Password)
 	m := Manager{
 		tydsClient: managerClient,
+		poolName:   config.PoolName,
+		stripSize:  config.StripSize,
 	}
 	return &m, nil
 }

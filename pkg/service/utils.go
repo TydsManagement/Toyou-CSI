@@ -6,20 +6,22 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type configuration struct {
-	Hostname string `yaml:"hostname"`
-	Port     int    `yaml:"port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+type Configuration struct {
+	Hostname  string `yaml:"hostname"`
+	Port      int    `yaml:"port"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	PoolName  string `yaml:"pool"`
+	StripSize int    `yaml:"strip_size"`
 }
 
-func ReadconfigFromFile(filePath string) (*configuration, error) {
+func ReadconfigFromFile(filePath string) (*Configuration, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	conf := &configuration{}
+	conf := &Configuration{}
 	err = yaml.Unmarshal(data, conf)
 	if err != nil {
 		return nil, err
