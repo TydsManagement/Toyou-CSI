@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -77,7 +76,7 @@ func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) 
 		}
 	}(response.Body)
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +149,7 @@ func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, 
 		}
 	}(response.Body)
 
-	responseData, err := ioutil.ReadAll(response.Body)
+	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
