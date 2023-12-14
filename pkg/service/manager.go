@@ -18,10 +18,10 @@ package service
 
 type VolumeManager interface {
 	FindVolume(volId string) (interface{}, error)
-	FindVolumeByName(volName string) (interface{}, error)
+	FindVolumeByName(volName string) map[string]interface{}
 	CreateVolume(volName string, requestSize int) (volId string, err error)
 	DeleteVolume(volId string) (err error)
-	ListVolumes() []interface{}
+	ListVolumes() []map[string]interface{}
 	AttachVolume(volId string, instanceId string) (err error)
 	DetachVolume(volId string, instanceId string) (err error)
 	ResizeVolume(volId string, requestSize int) (err error)
@@ -32,7 +32,7 @@ type SnapshotManager interface {
 	FindSnapshotByName(snapName string) (*interface{}, error)
 	CreateSnapshot(snapName string, volID string) error
 	DeleteSnapshot(snapID string) error
-	CreateVolumeFromSnapshot(volName string, snapId string, zone string) (volId string, err error)
+	CreateVolumeFromSnapshot(volName string, snapId string) (volId string, err error)
 }
 
 type TydsManager interface {

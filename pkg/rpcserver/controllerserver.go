@@ -88,15 +88,7 @@ func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 	volumeListInterface := cs.TydsManager.ListVolumes()
 
 	entries := make([]*csi.ListVolumesResponse_Entry, 0, len(volumeListInterface))
-	for _, item := range volumeListInterface {
-		volMap, ok := item.(map[string]interface{})
-		if !ok {
-			// 如果无法将item转换为map[string]interface{}，则跳过此项
-			klog.Errorf("Invalid volume format in volume list")
-			continue
-		}
-
-		// 假设VolumeId和CapacityBytes是map中的键
+	for _, volMap := range volumeListInterface {
 		volumeId, ok := volMap["name"].(string)
 		if !ok {
 			klog.Errorf("VolumeId is missing or not a string")

@@ -69,18 +69,28 @@ func (m *Manager) DeleteSnapshot(snapID string) error {
 	return nil
 }
 
-func (m *Manager) CreateVolumeFromSnapshot(volName string, snapID string, zone string) (string, error) {
-	snapshotName := convertStr(snapID)
-	volumeName := convertStr(volName)
-	poolName, _ := extractPoolName(zone)
+func (m *Manager) CreateVolumeFromSnapshot(volName string, snapID string) (string, error) {
+	snapshotName := fmt.Sprintf(snapID)
+	volumeName := fmt.Sprintf(volName)
+	poolName := m.poolName
 
-	srcVol, _ := m.FindVolumeByName(volumeName)
+	srcVol := m.FindVolumeByName(volumeName)
 	if srcVol == nil {
 		msg := fmt.Sprintf("Volume \"%s\" not found in create_volume_from_snapshot.", volumeName)
 		return "", errors.New(msg)
 	}
+	srcVolName, ok := srcVol["name"].(string)
+	if !ok {
+		msg := fmt.Sprintf("Invalid type for srcVolName: %T", srcVol["name"])
+		return "", errors.New(msg)
+	}
+	srcVolPoolName, ok := srcVol["PoolName"].(string)
+	if !ok {
+		msg := fmt.Sprintf("Invalid type for srcVolPoolName: %T", srcVol["PoolName"])
+		return "", errors.New(msg)
+	}
 
-	err := m.tydsClient.CreateVolumeFromSnapshot(volumeName, poolName, snapshotName, srcVol.VolumeName, srcVol.PoolName)
+	err := m.tydsClient.CreateVolumeFromSnapshot(volumeName, poolName, snapshotName, srcVolName, srcVolPoolName)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +98,7 @@ func (m *Manager) CreateVolumeFromSnapshot(volName string, snapID string, zone s
 	return volumeName, nil
 }
 
-func (m *Manager) FindVolume(volID string) (*interface{}, error) {
+func (m *Manager) FindVolume(volID string) (interface{}, error) {
 	res, err := m.tydsClient.GetVolume(volID)
 	if err != nil {
 		return nil, err
@@ -96,20 +106,21 @@ func (m *Manager) FindVolume(volID string) (*interface{}, error) {
 	return &res, nil
 }
 
-func (m *Manager) FindVolumeByName(volName string) (interface{}, error) {
+func (m *Manager) FindVolumeByName(volName string) map[string]interface{} {
 	volumeList := m.tydsClient.GetVolumes()
 	if volumeList == nil {
-		return nil, err
+		return nil
 	}
 
 	for _, vol := range volumeList {
-		if vol.BlockName == volName {
-			return vol, nil
+		name := vol["name"].(string)
+		if name == volName {
+			return vol
 		}
 	}
 
 	// 返回一个空的interface{}，表示未找到对应名称的卷
-	return nil, nil
+	return nil
 }
 
 // CreateVolume creates a volume with the specified parameters
@@ -133,7 +144,7 @@ func (m *Manager) DeleteVolume(volId string) (err error) {
 	return nil
 }
 
-func (m *Manager) ListVolumes() []interface{} {
+func (m *Manager) ListVolumes() []map[string]interface{} {
 	volumeList := m.tydsClient.GetVolumes()
 	return volumeList
 }

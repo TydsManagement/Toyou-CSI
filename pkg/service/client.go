@@ -215,21 +215,26 @@ func (c *TydsClient) GetVolume(volID string) (interface{}, error) {
 	return volume, nil
 }
 
-func (c *TydsClient) GetVolumes() []interface{} {
+func (c *TydsClient) GetVolumes() []map[string]interface{} {
 	url := "block/block"
 	response, err := c.SendHTTPAPI(url, nil, "GET")
 	if err != nil {
-		// Handle API request failure
+		// 处理 API 请求失败
 		panic(err)
 	}
 
 	volList, ok := response.(map[string]interface{})["blockList"].([]interface{})
 	if !ok {
-		// Handle blockList not found in the response
+		// 处理响应中找不到 blockList
 		panic("blockList not found in the response")
 	}
 
-	return volList
+	volumes := make([]map[string]interface{}, len(volList))
+	for i, vol := range volList {
+		volumes[i] = vol.(map[string]interface{})
+	}
+
+	return volumes
 }
 
 func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize int) (string, error) {
@@ -383,7 +388,7 @@ func (c *TydsClient) GetCopyProgress(blockID string, blockName string, targetBlo
 	return c.SendHTTPAPI(url, params, "GET")
 }
 
-func (c *TydsClient) CreateInitiatorGroup(groupName string, client string) error {
+func (c *TydsClient) CreateInitiatorGroup(groupName string, client []map[string]string) error {
 	url := "iscsi/service-group/"
 	params := map[string]interface{}{
 		"group_name": groupName,
