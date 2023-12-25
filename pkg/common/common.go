@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"k8s.io/klog"
+	"k8s.io/utils/mount"
 )
 
 type retryLimiter struct {
@@ -52,7 +53,7 @@ func (r *retryLimiter) GetCurrentRetryTimes(id string) int {
 	return r.record[id]
 }
 
-// GenerateRandIdSuffix generates a random resource id.
+// GenerateHashInEightBytes GenerateRandIdSuffix generates a random resource id.
 func GenerateHashInEightBytes(input string) string {
 	h := fnv.New32a()
 	h.Write([]byte(input))
@@ -73,7 +74,7 @@ func ExitFunction(functionName, hash string) (info string) {
 		current.Format(DefaultTimeFormat), hash)
 }
 
-// 从flag包中获取命令行参数值的辅助函数
+// GetFlagValue 从flag包中获取命令行参数值的辅助函数
 func GetFlagValue(name string, defaultValue string) string {
 	if flagVal := flag.Lookup(name); flagVal != nil {
 		return flagVal.Value.(flag.Getter).Get().(string)
@@ -81,7 +82,7 @@ func GetFlagValue(name string, defaultValue string) string {
 	return defaultValue
 }
 
-// 从flag包中获取int64类型的命令行参数值的辅助函数
+// GetInt64FlagValue 从flag包中获取int64类型的命令行参数值的辅助函数
 func GetInt64FlagValue(name string, defaultValue int64) int64 {
 	if flagVal := flag.Lookup(name); flagVal != nil {
 		value, err := strconv.ParseInt(flagVal.Value.(flag.Getter).Get().(string), 10, 64)
@@ -92,4 +93,12 @@ func GetInt64FlagValue(name string, defaultValue int64) int64 {
 		return value
 	}
 	return defaultValue
+}
+
+func NewSafeMounter() *mount.SafeFormatAndMount {
+	realMounter := mount.New("")
+
+	return &mount.SafeFormatAndMount{
+		Interface: realMounter,
+	}
 }
