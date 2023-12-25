@@ -22,10 +22,10 @@ import (
 	"os"
 	"time"
 
-	"toyou_csi/pkg/common"
-	"toyou_csi/pkg/driver"
-	"toyou_csi/pkg/rpcserver"
-	"toyou_csi/pkg/service"
+	"toyou-csi/pkg/common"
+	"toyou-csi/pkg/driver"
+	"toyou-csi/pkg/rpcserver"
+	"toyou-csi/pkg/service"
 
 	"k8s.io/klog"
 )

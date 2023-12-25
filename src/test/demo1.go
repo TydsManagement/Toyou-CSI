@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"test/pkgtest"
+	"toyou-csi/src/test/pkgtest"
 )
 
 func main() {

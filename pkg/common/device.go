@@ -22,5 +22,9 @@ package common
 import "k8s.io/utils/mount"
 
 func NewSafeMounter() *mount.SafeFormatAndMount {
-	return nil
+	realMounter := mount.New("")
+
+	return &mount.SafeFormatAndMount{
+		Interface: realMounter,
+	}
 }
