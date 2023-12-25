@@ -19,7 +19,7 @@ limitations under the License.
 
 package common
 
-import "k8s.io/kubernetes/pkg/util/mount"
+import "k8s.io/utils/mount"
 
 func NewSafeMounter() *mount.SafeFormatAndMount {
 	return nil

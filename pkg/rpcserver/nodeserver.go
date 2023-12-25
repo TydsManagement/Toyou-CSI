@@ -4,20 +4,20 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
-	"toyou_csi/pkg/common"
-	"toyou_csi/pkg/driver"
-	"toyou_csi/pkg/service"
+	"toyou-csi/pkg/common"
+	"toyou-csi/pkg/driver"
+	"toyou-csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
-	"k8s.io/kubernetes/pkg/util/mount"
-	"k8s.io/kubernetes/pkg/util/resizefs"
 	"k8s.io/kubernetes/pkg/volume"
+	"k8s.io/utils/mount"
 )
 
 // NodeServer is the server API for Node service.
@@ -237,7 +237,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	// according to the CSI spec, CO is only responsible for ensuring the existence of the parent dir of the target path
 	// in block mode, this is a nil, which will also work as expected in following mounting
 	fsType := req.GetVolumeCapability().GetMount().GetFsType()
-	exists, err := ns.Mounter.ExistsPath(targetPath)
+	exists, err := mount.PathExists(targetPath)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -257,7 +257,7 @@ func (ns *NodeServer) NodePublishVolume(ctx context.Context, req *csi.NodePublis
 	}
 
 	// check wether targetPath is mounted
-	notMnt, err := ns.Mounter.IsNotMountPoint(targetPath)
+	notMnt, err := mount.IsNotMountPoint(ns.Mounter, targetPath)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -339,11 +339,14 @@ func (ns *NodeServer) NodeGetVolumeStats(ctx context.Context, req *csi.NodeGetVo
 
 	volumePath := req.GetVolumePath()
 	// block mode volume's stats can't be retrieved like those filesystem volumes
-	pathType, err := ns.Mounter.GetFileType(volumePath)
+	fileInfo, err := os.Stat(volumePath)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to determine volume %s 's mode: %v", volumePath, err)
+		if os.IsNotExist(err) {
+			return nil, status.Errorf(codes.NotFound, "volume %s not found", volumePath)
+		}
+		return nil, status.Errorf(codes.Internal, "failed to determine volume %s's mode: %v", volumePath, err)
 	}
-	isBlockMode := pathType == mount.FileTypeBlockDev
+	isBlockMode := fileInfo.Mode()&os.ModeDevice != 0
 
 	// Get metrics
 	if isBlockMode {
@@ -407,13 +410,17 @@ func (ns *NodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandV
 	}
 	// Set parameter
 	volumeID := req.GetVolumeId()
-	volumePath := req.GetVolumePath()
 	// 2. ensure one call in-flight
 	klog.Infof("Try to lock resource %s", volumeID)
 	if acquired := ns.Locks.TryAcquire(volumeID); !acquired {
 		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeID)
 	}
 	defer ns.Locks.Release(volumeID)
+	// try to generate path
+	devicePath := ""
+	devicePrefix := "/dev/disk/by-id/virtio-"
+	devicePath = devicePrefix + volumeID
+
 	// 2. Check volume exist
 	klog.Infof("Get volume %s info", volumeID)
 	volInfo, err := ns.TydsManager.FindVolume(volumeID)
@@ -424,20 +431,11 @@ func (ns *NodeServer) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandV
 		return nil, status.Errorf(codes.NotFound, "Volume %s does not exist", volumeID)
 	}
 
-	// get device path
-	devicePath := ""
-	devicePrefix := "/dev/disk/by-id/virtio-"
-	devicePath = devicePrefix + volumeID
-	resizer := resizefs.NewResizeFs(ns.Mounter)
-	klog.Infof("Resize file system device %s, mount path %s ...", devicePath, volumePath)
-	ok, err := resizer.Resize(devicePath, volumePath)
+	// 3. resize volume
+	err = ns.TydsManager.ResizeVolume(volumeID, requestSizeBytes)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if !ok {
-		return nil, status.Error(codes.Internal, "failed to expand volume filesystem")
-	}
-	klog.Info("Succeed to resize file system")
 
 	//  Check the block size
 	blkSizeBytes, err := ns.getBlockSizeBytes(devicePath)
@@ -482,7 +480,8 @@ func (ns *NodeServer) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoReque
 // Helper functions
 
 func (ns *NodeServer) getBlockSizeBytes(devicePath string) (int64, error) {
-	output, err := ns.Mounter.Exec.Run("blockdev", "--getsize64", devicePath)
+	cmd := exec.Command("blockdev", "--getsize64", devicePath)
+	output, err := cmd.Output()
 	if err != nil {
 		return -1, fmt.Errorf("error when getting size of block volume at path %s: output: %s, err: %v", devicePath, string(output), err)
 	}

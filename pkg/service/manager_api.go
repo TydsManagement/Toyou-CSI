@@ -282,7 +282,7 @@ func (m *Manager) DetachVolume(volId string, instanceId string) error {
 }
 
 // ResizeVolume resizes a volume to the specified size.
-func (m *Manager) ResizeVolume(volId string, newSize int) error {
+func (m *Manager) ResizeVolume(volId string, newSize int64) error {
 	// 获取卷信息
 	volume, err := m.tydsClient.GetVolume(volId)
 	if err != nil {

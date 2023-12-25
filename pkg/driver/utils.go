@@ -17,7 +17,7 @@ limitations under the License.
 package driver
 
 import (
-	"toyou_csi/pkg/common"
+	"toyou-csi/pkg/common"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )

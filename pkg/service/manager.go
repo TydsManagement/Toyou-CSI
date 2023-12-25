@@ -24,7 +24,7 @@ type VolumeManager interface {
 	ListVolumes() []map[string]interface{}
 	AttachVolume(volId string, instanceId string) (err error)
 	DetachVolume(volId string, instanceId string) (err error)
-	ResizeVolume(volId string, requestSize int) (err error)
+	ResizeVolume(volId string, requestSize int64) (err error)
 }
 
 type SnapshotManager interface {

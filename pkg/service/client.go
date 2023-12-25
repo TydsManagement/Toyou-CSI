@@ -263,7 +263,7 @@ func (c *TydsClient) DeleteVolume(volID string) error {
 }
 
 // ExtendVolume 在给定的存储池中扩展指定的卷。
-func (c *TydsClient) ExtendVolume(volName string, poolName string, sizeMB int) error {
+func (c *TydsClient) ExtendVolume(volName string, poolName string, sizeMB int64) error {
 	url := fmt.Sprintf("block/block/%s/", volName)
 	params := map[string]interface{}{
 		"blockName": volName,

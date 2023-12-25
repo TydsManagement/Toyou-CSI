@@ -19,8 +19,8 @@ package rpcserver
 import (
 	"context"
 
-	"toyou_csi/pkg/driver"
-	"toyou_csi/pkg/service"
+	"toyou-csi/pkg/driver"
+	"toyou-csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -33,6 +33,10 @@ import (
 type ControllerServer struct {
 	Driver      *driver.ToyouDriver
 	TydsManager service.TydsManager
+}
+
+func (cs *ControllerServer) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // NewControllerServer creates a new ControllerServer.
