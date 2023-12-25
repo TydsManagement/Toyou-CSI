@@ -227,7 +227,7 @@ func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	volumeId := req.GetVolumeId()
 	requiredSize := req.GetCapacityRange().GetRequiredBytes()
 
-	err := cs.TydsManager.ResizeVolume(volumeId, int(requiredSize))
+	err := cs.TydsManager.ResizeVolume(volumeId, requiredSize)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to resize volume: %v", err)
 	}
