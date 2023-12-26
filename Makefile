@@ -39,9 +39,6 @@ uninstall:
 
 mod:
 	go build ./...
-	go mod download
-	go mod tidy
-	go mod vendor
 
 fmt:
 	go fmt ${PACKAGE_LIST}
