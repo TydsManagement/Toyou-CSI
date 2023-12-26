@@ -23,7 +23,7 @@ FROM centos:7
 LABEL maintainers="Toyou"
 LABEL description="Toyou tyds CSI plugin"
 
-RUN yum update && \
+RUN yum update -y && \
     yum install file which e2fsprogs xfsprogs mount e2fsprogs multipath-tools sg3_utils device-mapper-multipath lsscsi -y
 
 COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
