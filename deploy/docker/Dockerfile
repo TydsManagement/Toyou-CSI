@@ -19,13 +19,12 @@ WORKDIR /toyou-csi
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -mod=vendor  -ldflags "-s -w" -o  _output/toyou-csi-driver ./cmd/disk
 
-FROM debian:stretch
+FROM centos:7
 LABEL maintainers="Toyou"
 LABEL description="Toyou tyds CSI plugin"
 
-RUN apt-get update && \
-    apt-get install -y util-linux e2fsprogs xfsprogs mount ca-certificates udev && \
-    rm -rf /var/lib/apt/lists/*
+RUN yum update && \
+    yum install util-linux e2fsprogs xfsprogs mount ca-certificates udev -y
 
 COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
 RUN chmod +x /toyou-csi-driver && \
