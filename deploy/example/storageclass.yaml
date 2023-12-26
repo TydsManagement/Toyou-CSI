@@ -1,0 +1,13 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+   name: csi-iscsi
+provisioner: csi.toyou.com
+parameters:
+    xmsServers: 10.252.90.39
+    pool: data_pool
+    user: admin
+    password: admin
+    accessPaths: csi-ap,csi-ap1,csi-ap2
+    csi.storage.k8s.io/fstype: xfs
+reclaimPolicy: Delete

@@ -1,0 +1,55 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-sidecar-iscsi-provisioner
+  labels:
+    app: csi-sidecar-iscsi-provisioner
+spec:
+  selector:
+    app: csi-sidecar-iscsi-provisioner
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: csi-sidecar-iscsi-provisioner
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      external-attacher: csi-sidecar-iscsi-provisioner
+  template:
+    metadata:
+      labels:
+        external-attacher: csi-sidecar-iscsi-provisioner
+    spec:
+      serviceAccount: block-csi-provisioner
+      containers:
+        - name: block-csi-provisioner
+          image: quay.io/k8scsi/csi-provisioner:v1.5.0
+          args:
+            - "--csi-address=$(ADDRESS)"
+            - "--enable-leader-election=true"
+            - "--leader-election-type=leases"
+            - "--worker-threads=10"
+            - "--timeout=20s"
+          env:
+            - name: ADDRESS
+              value: /tcsi/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /tcsi
+            - name: timezone
+              mountPath: /etc/localtime
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/csi.toyou.com
+            type: DirectoryOrCreate
+        - name: timezone
+          hostPath:
+            path: /etc/localtime

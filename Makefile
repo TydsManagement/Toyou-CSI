@@ -17,25 +17,25 @@
 .PHONY: all disk
 
 DISK_IMAGE_NAME=csiplugin/csi-toyou
-DISK_VERSION=v1.3.9
+DISK_VERSION=v1.0.1
 ROOT_PATH=$(pwd)
 PACKAGE_LIST=./cmd/... ./pkg/...
 
 disk: mod
-	docker build -t ${DISK_IMAGE_NAME}-builder:${DISK_VERSION} -f deploy/disk/docker/Dockerfile . --target builder
+	docker build -t ${DISK_IMAGE_NAME}-builder:${DISK_VERSION} -f deploy/docker/Dockerfile . --target builder
 
 disk-container:
-	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/disk/docker/Dockerfile  .
+	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/docker/Dockerfile  .
 
 yaml:
-	kustomize build deploy/disk/kubernetes/overlays/patch > deploy/disk/kubernetes/releases/toyou-csi-disk-${DISK_VERSION}.yaml
+	kustomize build deploy/kubernetes/overlays/patch > deploy/kubernetes/releases/toyou-csi-disk-${DISK_VERSION}.yaml
 
 install:
-	cp /${HOME}/.toyou/config.yaml deploy/disk/kubernetes/base/config.yaml
-	kustomize build deploy/disk/kubernetes/overlays/patch|kubectl apply -f -
+	cp /${HOME}/.toyou/config.yaml deploy/kubernetes/base/config.yaml
+	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
 
 uninstall:
-	kustomize build deploy/disk/kubernetes/overlays/patch|kubectl delete -f -
+	kustomize build deploy/kubernetes/overlays/patch|kubectl delete -f -
 
 mod:
 	go build ./...
@@ -44,7 +44,7 @@ fmt:
 	go fmt ${PACKAGE_LIST}
 
 fmt-deep: fmt
-	gofmt -s -w -l ./pkg/cloud/ ./pkg/common/ ./pkg/disk/driver ./pkg/disk/rpcserver
+	gofmt -s -w -l ./pkg/cloud/ ./pkg/common/ ./pkg/driver ./pkg/rpcserver
 
 sanity-test:
 	nohup ${ROOT_PATH}/csi-sanity --csi.endpoint /var/lib/kubelet/plugins/csi.toyou.com/csi.sock -csi.testvolumeexpandsize 21474836480  -ginkgo.noColor &
@@ -54,4 +54,4 @@ clean:
 	rm -rf ./_output
 
 push:
-	docker buildx build -t ${DISK_IMAGE_NAME}:${DISK_VERSION}   --platform=linux/amd64,linux/arm64 -f deploy/disk/docker/Dockerfile . --push
+	docker buildx build -t ${DISK_IMAGE_NAME}:${DISK_VERSION}   --platform=linux/amd64,linux/arm64 -f deploy/docker/Dockerfile . --push

@@ -53,7 +53,7 @@ func main() {
 		Version:       version,
 		ProvisionName: defaultProvisionName,
 		ConfigPath:    common.GetFlagValue("config", defaultConfigPath),
-		Endpoint:      common.GetFlagValue("endpoint", "unix:///tmp/csi.sock"),
+		Endpoint:      common.GetFlagValue("endpoint", "unix:///tcsi/csi.sock"),
 		maxVolume:     common.GetInt64FlagValue("maxvolume", 255),
 	}
 

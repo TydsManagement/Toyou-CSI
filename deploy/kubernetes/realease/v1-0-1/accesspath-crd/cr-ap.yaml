@@ -1,0 +1,18 @@
+apiVersion: "csi.toyou.com/v1"
+kind: AccessPath
+metadata:
+  name: my-ap #object name in kubernetes
+spec:
+  name: myap #name in SDS
+  type: Kubernetes #one of Kubernetes,iSCSI
+  cluster_info:
+    secret_name: csi-secret
+    secret_namespace: default
+    xmsServers: 10.252.3.179,10.252.3.180,10.252.3.181
+  gateway: vm39,vm40,vm41 #separated by comma,
+  vip_group:
+    preempt: false #optional
+    vips:
+      - vip: 10.252.90.100
+        mask: 24 #optional, default 32
+        default_gateway: vm39 #optional,preferred network

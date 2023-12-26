@@ -1,0 +1,65 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-sidecar-iscsi-attacher
+  labels:
+    app: csi-sidecar-iscsi-attacher
+spec:
+  selector:
+    app: csi-sidecar-iscsi-attacher
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: csi-sidecar-iscsi-attacher
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      external-attacher: csi-sidecar-iscsi-attacher
+  template:
+    metadata:
+      labels:
+        external-attacher: csi-sidecar-iscsi-attacher
+    spec:
+      serviceAccountName: block-csi-attacher
+      containers:
+        - name: block-csi-attacher
+          image: quay.io/k8scsi/csi-attacher:v2.0.0
+          args:
+            - "--v=2"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election-namespace=$(MY_NAMESPACE)"
+            - "--leader-election"
+            - "--worker-threads=100"
+          env:
+            - name: MY_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: MY_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: ADDRESS
+              value: /tcsi/csi.sock
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /tcsi
+            - name: timezone
+              mountPath: /etc/localtime
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/block.csi.toyou.com
+            type: DirectoryOrCreate
+        - name: timezone
+          hostPath:
+            path: /etc/localtime

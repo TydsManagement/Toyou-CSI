@@ -1,0 +1,93 @@
+# This YAML file shows how to deploy the CSI snapshotter together
+# with the hostpath CSI driver. It depends on the RBAC rules
+# from rbac-csi-snapshotter.yaml and rbac-external-provisioner.yaml.
+#
+# Because external-snapshotter and external-provisioner get
+# deployed in the same pod, we have to merge the permissions
+# for the provisioner into the service account. This is not
+# necessary when deploying separately.
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-snapshotter-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-snapshotter # from rbac.yaml
+    # replace with non-default namespace name
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: external-provisioner-runner # from rbac-external-provisioner.yaml
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-snapshotter-provisioner-role-cfg
+  # replace with non-default namespace name
+  namespace: default
+subjects:
+  - kind: ServiceAccount
+    name: csi-snapshotter # from rbac.yaml
+    # replace with non-default namespace name
+    namespace: default
+roleRef:
+  kind: Role
+  name: external-provisioner-cfg # from rbac-external-provisioner.yaml
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: csi-snapshotter
+  labels:
+    app: csi-snapshotter
+spec:
+  selector:
+    app: csi-snapshotter
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: csi-snapshotter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: csi-snapshotter
+  template:
+    metadata:
+      labels:
+        app: csi-snapshotter
+    spec:
+      serviceAccountName: csi-snapshotter
+      containers:
+        - name: csi-snapshotter
+          image: quay.io/k8scsi/csi-snapshotter:v3.0.3
+          args:
+            - "--v=5"
+            - "--csi-address=$(ADDRESS)"
+            - "--leader-election=true"
+          env:
+            - name: ADDRESS
+              value: /tcsi/csi.sock
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /tcsi
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/block.csi.xsky.com
+            type: DirectoryOrCreate
+        - name: timezone
+          hostPath:
+            path: /etc/localtime
