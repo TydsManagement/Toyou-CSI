@@ -24,7 +24,7 @@ LABEL maintainers="Toyou"
 LABEL description="Toyou tyds CSI plugin"
 
 RUN yum update && \
-    yum install util-linux e2fsprogs xfsprogs mount ca-certificates udev -y
+    yum install file which e2fsprogs xfsprogs mount e2fsprogs multipath-tools sg3_utils device-mapper-multipath lsscsi -y
 
 COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
 RUN chmod +x /toyou-csi-driver && \
