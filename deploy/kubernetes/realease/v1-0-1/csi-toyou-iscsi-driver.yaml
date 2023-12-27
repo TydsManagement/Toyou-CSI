@@ -22,11 +22,11 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: xskydriver/csi-iscsi:2.3.0
+          image: csiplugin/csi-toyou:1.0.1
           args:
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--drivername=iscsi.csi.toyou.com"
+            - "--drivername=csi.toyou.com"
             - "--metadatastorage=true"
             - "--logrotate=true"
             - "--policy=multibus"
@@ -82,7 +82,7 @@ spec:
           args:
             - "--v=5"
             - "--csi-address=/tcsi/csi.sock"
-            - "--kubelet-registration-path=/var/lib/kubelet/plugins/block.csi.xsky.com/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/csi.toyou.com/csi.sock"
           env:
             - name: KUBE_NODE_NAME
               valueFrom:
@@ -97,7 +97,7 @@ spec:
               mountPath: /etc/localtime
       volumes:
         - hostPath:
-            path: /var/lib/kubelet/plugins/block.csi.xsky.com
+            path: /var/lib/kubelet/plugins/csi.toyou.com
             type: DirectoryOrCreate
           name: socket-dir
         - hostPath:
