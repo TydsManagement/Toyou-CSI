@@ -22,7 +22,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: csi-toyou:v1.0.1
+          image: docker.io/library/csiplugin/csi-toyou:v1.0.1
           args:
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
