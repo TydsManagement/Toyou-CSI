@@ -149,7 +149,7 @@ spec:
             type: Directory
 
       imagePullSecrets:
-        - name: generic
+        - name: regcred
 ---
 # https://github.com/jparklab/synology-csi/issues/6
 kind: ConfigMap
