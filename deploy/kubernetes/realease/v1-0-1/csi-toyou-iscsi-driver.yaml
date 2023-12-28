@@ -22,7 +22,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: csiplugin/csi-toyou:v1.0.1
+          image: hero74/csi-toyou:v1.0.1
           args:
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
