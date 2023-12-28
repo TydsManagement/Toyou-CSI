@@ -43,7 +43,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: CSI_ENDPOINT
               value: unix:///tcsi/csi.sock
-          imagePullPolicy: "IfNotPresent"
+          imagePullPolicy: "Never"
           volumeMounts:
             - mountPath: /tcsi
               name: socket-dir
@@ -147,7 +147,9 @@ spec:
           hostPath:
             path: /run/udev
             type: Directory
-            
+
+      imagePullSecrets:
+        - name: generic
 ---
 # https://github.com/jparklab/synology-csi/issues/6
 kind: ConfigMap
