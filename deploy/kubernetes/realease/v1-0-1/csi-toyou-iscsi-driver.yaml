@@ -42,7 +42,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: CSI_ENDPOINT
               value: unix:///tcsi/csi.sock
-          imagePullPolicy: "IfNotPresent"
+          imagePullPolicy: "Always"
           volumeMounts:
             - mountPath: /tcsi
               name: socket-dir
