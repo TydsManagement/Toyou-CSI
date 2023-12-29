@@ -21,15 +21,14 @@ spec:
             privileged: true
             capabilities:
               add: ["SYS_ADMIN"]
+
             allowPrivilegeEscalation: true
           image: hero74/toyou-csi:v1.0.1
           args:
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
-            - "--drivername=csi.toyou.com"
-            - "--metadatastorage=true"
-            - "--logrotate=true"
-            - "--policy=multibus"
+            - "--maxvolume=255"
+            - "--config=/etc/config/config.yaml"
           env:
             - name: LOG_LEVEL
               value: "info"

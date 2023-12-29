@@ -42,6 +42,7 @@ type Config struct {
 	ConfigPath    string
 	Endpoint      string
 	maxVolume     int64
+	NodeId        string
 }
 
 func main() {
@@ -54,6 +55,7 @@ func main() {
 		ProvisionName: defaultProvisionName,
 		ConfigPath:    common.GetFlagValue("config", defaultConfigPath),
 		Endpoint:      common.GetFlagValue("endpoint", "unix:///tcsi/csi.sock"),
+		NodeId:        common.GetFlagValue("nodeid", ""),
 		maxVolume:     common.GetInt64FlagValue("maxvolume", 255),
 	}
 
@@ -71,6 +73,7 @@ func mainProcess(config *Config) {
 	diskDriverInput := &driver.InitDiskDriverInput{
 		Name:          config.ProvisionName,
 		Version:       config.Version,
+		NodeId:        config.NodeId,
 		MaxVolume:     config.maxVolume,
 		VolumeCap:     driver.DefaultVolumeAccessModeType,
 		ControllerCap: driver.DefaultControllerServiceCapability,
