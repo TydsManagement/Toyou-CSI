@@ -16,7 +16,7 @@
 
 .PHONY: all disk
 
-DISK_IMAGE_NAME=csiplugin/csi-toyou
+DISK_IMAGE_NAME=hero74/toyou-csi
 DISK_VERSION=v1.0.1
 ROOT_PATH=$(pwd)
 PACKAGE_LIST=./cmd/... ./pkg/...
@@ -28,10 +28,10 @@ disk-container:
 	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/docker/Dockerfile  .
 
 yaml:
-	kustomize build deploy/kubernetes/overlays/patch > deploy/kubernetes/releases/toyou-csi-disk-${DISK_VERSION}.yaml
+	kustomize build deploy/kubernetes/overlays/patch > deploy/kubernetes/releases/toyou-csi-${DISK_VERSION}.yaml
 
 install:
-	cp /${HOME}/.toyou/config.yaml deploy/kubernetes/base/config.yaml
+	cp /etc/config/config.yaml deploy/kubernetes/base/config.yaml
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
 
 uninstall:
