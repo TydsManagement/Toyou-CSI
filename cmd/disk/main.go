@@ -31,8 +31,8 @@ import (
 )
 
 const (
-	version              = "unknown"
-	defaultProvisionName = "disk.csi.toyou.com"
+	version              = "1.0.1"
+	defaultProvisionName = "csi.toyou.com"
 	defaultConfigPath    = "/etc/config/config.yaml"
 )
 
@@ -46,7 +46,7 @@ type Config struct {
 }
 
 func main() {
-	klog.InitFlags(nil)
+	// klog.InitFlags(nil)
 	flag.Parse()
 	rand.NewSource(time.Now().UTC().UnixNano()) // 生成随机数种子
 
@@ -55,7 +55,7 @@ func main() {
 		ProvisionName: defaultProvisionName,
 		ConfigPath:    common.GetFlagValue("config", defaultConfigPath),
 		Endpoint:      common.GetFlagValue("endpoint", "unix:///tcsi/csi.sock"),
-		NodeId:        common.GetFlagValue("nodeid", ""),
+		NodeId:        common.GetFlagValue("nodeid", "default-node-id"),
 		maxVolume:     common.GetInt64FlagValue("maxvolume", 255),
 	}
 
