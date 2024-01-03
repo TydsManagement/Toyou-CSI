@@ -20,6 +20,7 @@ DISK_IMAGE_NAME=hero74/toyou-csi
 DISK_VERSION=v1.0.1
 ROOT_PATH=$(pwd)
 PACKAGE_LIST=./cmd/... ./pkg/...
+CONFIG_FILE=./deploy/kubernetes/base/config.yaml
 
 disk: mod
 	docker build -t ${DISK_IMAGE_NAME}-builder:${DISK_VERSION} -f deploy/docker/Dockerfile . --target builder
@@ -29,10 +30,10 @@ disk-container:
 
 yaml:
 	# Copy config.yaml to the image
-	docker create --name temp-$(IMAGE_NAME) $(IMAGE_NAME)
-	docker cp $(CONFIG_FILE) temp-$(IMAGE_NAME):/etc/config/config.yaml
-	docker commit temp-$(IMAGE_NAME) $(IMAGE_NAME)-with-config
-	docker rm temp-$(IMAGE_NAME)
+	docker create --name temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME)
+	docker cp $(CONFIG_FILE) temp-$(DISK_IMAGE_NAME):/etc/config/config.yaml
+	docker commit temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME)-with-config
+	docker rm temp-$(DISK_IMAGE_NAME)
 
 install:
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
