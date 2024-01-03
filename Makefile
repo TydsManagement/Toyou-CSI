@@ -30,9 +30,9 @@ disk-container:
 
 yaml:
 	# Copy config.yaml to the image
-	docker create --name temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME)
+	docker create --name temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME):${DISK_VERSION}
 	docker cp $(CONFIG_FILE) temp-$(DISK_IMAGE_NAME):/etc/config/config.yaml
-	docker commit temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME)-with-config
+	docker commit temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME):${DISK_VERSION}
 	docker rm temp-$(DISK_IMAGE_NAME)
 
 install:
