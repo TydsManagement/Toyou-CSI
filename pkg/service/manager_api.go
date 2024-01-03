@@ -371,7 +371,7 @@ func NewManagerClientFromConfig(configPath string) (*Manager, error) {
 	}
 
 	// Create a new instance of TydsClient
-	managerClient := NewTydsClient(config.Hostname, config.Port, config.Username, config.Password)
+	managerClient := NewTydsClient(config.HostIP, config.Port, config.Username, config.Password)
 	m := Manager{
 		tydsClient: managerClient,
 		poolName:   config.PoolName,

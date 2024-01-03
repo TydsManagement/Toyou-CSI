@@ -14,7 +14,6 @@ import (
 
 type TydsClient struct {
 	Username        string
-	Hostname        string
 	Password        string
 	BaseURL         string
 	SnapshotCount   int
@@ -24,11 +23,11 @@ type TydsClient struct {
 	Port            int
 }
 
-func NewTydsClient(hostname string, port int, username string, password string) *TydsClient {
+func NewTydsClient(hostip string, port int, username string, password string) *TydsClient {
 	client := &TydsClient{
 		Username:      username,
 		Password:      base64.StdEncoding.EncodeToString([]byte(password)),
-		BaseURL:       fmt.Sprintf("https://%s:%d/api", hostname, port),
+		BaseURL:       fmt.Sprintf("https://%s:%d/api", hostip, port),
 		SnapshotCount: 999,
 		Token:         "",
 		IP:            getLocalIP(),

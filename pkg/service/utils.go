@@ -7,7 +7,7 @@ import (
 )
 
 type Configuration struct {
-	Hostname  string `yaml:"hostname"`
+	HostIP    string `yaml:"hostIP"`
 	Port      int    `yaml:"port"`
 	Username  string `yaml:"username"`
 	Password  string `yaml:"password"`
