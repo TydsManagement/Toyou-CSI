@@ -36,13 +36,20 @@ const (
 	defaultConfigPath    = "/etc/config/config.yaml"
 )
 
+var (
+	configPath = flag.String("config", defaultConfigPath, "config file path")
+	endpoint   = flag.String("endpoint", "unix:///tcsi/csi.sock", "CSI endpoint")
+	nodeID     = flag.String("nodeid", "default-node-id", "CSI node ID")
+	maxVolume  = flag.Int64("maxvolume", 255, "Maximum volume value")
+)
+
 type Config struct {
 	Version       string
 	ProvisionName string
 	ConfigPath    string
 	Endpoint      string
-	maxVolume     int64
-	NodeId        string
+	NodeID        string
+	MaxVolume     int64
 }
 
 func main() {
@@ -50,13 +57,14 @@ func main() {
 	flag.Parse()
 	rand.NewSource(time.Now().UTC().UnixNano()) // 生成随机数种子
 
+	// 创建 config 对象的指针
 	config := &Config{
 		Version:       version,
 		ProvisionName: defaultProvisionName,
-		ConfigPath:    common.GetFlagValue("config", defaultConfigPath),
-		Endpoint:      common.GetFlagValue("endpoint", "unix:///tcsi/csi.sock"),
-		NodeId:        common.GetFlagValue("nodeid", "default-node-id"),
-		maxVolume:     common.GetInt64FlagValue("maxvolume", 255),
+		ConfigPath:    *configPath,
+		Endpoint:      *endpoint,
+		NodeID:        *nodeID,
+		MaxVolume:     *maxVolume,
 	}
 
 	mainProcess(config)
@@ -73,8 +81,8 @@ func mainProcess(config *Config) {
 	diskDriverInput := &driver.InitDiskDriverInput{
 		Name:          config.ProvisionName,
 		Version:       config.Version,
-		NodeId:        config.NodeId,
-		MaxVolume:     config.maxVolume,
+		NodeId:        config.NodeID,
+		MaxVolume:     config.MaxVolume,
 		VolumeCap:     driver.DefaultVolumeAccessModeType,
 		ControllerCap: driver.DefaultControllerServiceCapability,
 		NodeCap:       driver.DefaultNodeServiceCapability,
