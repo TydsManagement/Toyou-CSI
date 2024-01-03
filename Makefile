@@ -25,14 +25,16 @@ disk: mod
 	docker build -t ${DISK_IMAGE_NAME}-builder:${DISK_VERSION} -f deploy/docker/Dockerfile . --target builder
 
 disk-container:
-	cp deploy/kubernetes/base/config.yaml /etc/config/config.yaml
 	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/docker/Dockerfile  .
 
 yaml:
-	kustomize build deploy/kubernetes/overlays/patch > deploy/kubernetes/releases/toyou-csi-${DISK_VERSION}.yaml
+	# Copy config.yaml to the image
+	docker create --name temp-$(IMAGE_NAME) $(IMAGE_NAME)
+	docker cp $(CONFIG_FILE) temp-$(IMAGE_NAME):/etc/config/config.yaml
+	docker commit temp-$(IMAGE_NAME) $(IMAGE_NAME)-with-config
+	docker rm temp-$(IMAGE_NAME)
 
 install:
-	cp deploy/kubernetes/base/config.yaml /etc/config/config.yaml
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
 
 uninstall:
