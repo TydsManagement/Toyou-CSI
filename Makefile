@@ -30,10 +30,10 @@ disk-container:
 
 yaml:
 	# Copy config.yaml to the image
-	docker create --name temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME):${DISK_VERSION}
-	docker cp $(CONFIG_FILE) temp-$(DISK_IMAGE_NAME):/etc/config/config.yaml
-	docker commit temp-$(DISK_IMAGE_NAME) $(DISK_IMAGE_NAME):${DISK_VERSION}
-	docker rm temp-$(DISK_IMAGE_NAME)
+	docker create --name temp-csi-image $(DISK_IMAGE_NAME):${DISK_VERSION}
+	docker cp $(CONFIG_FILE) temp-csi-image:/etc/config/config.yaml
+	docker commit temp-csi-image $(DISK_IMAGE_NAME):${DISK_VERSION}
+	docker rm temp-csi-image
 
 install:
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
