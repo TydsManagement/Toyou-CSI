@@ -54,11 +54,15 @@ func (is *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginI
 	klog.Info("GetPluginInfo called")
 
 	if is.Driver.GetName() == "" {
-		return nil, status.Error(codes.Unavailable, "Driver name not configured")
+		err := status.Error(codes.Unavailable, "Driver name not configured")
+		klog.Error("Failed to get plugin info: driver name not configured. Error:", err)
+		return nil, err
 	}
 
 	if is.Driver.GetVersion() == "" {
-		return nil, status.Error(codes.Unavailable, "Driver is missing version")
+		err := status.Error(codes.Unavailable, "Driver is missing version")
+		klog.Error("Failed to get plugin info: driver is missing version. Error:", err)
+		return nil, err
 	}
 
 	return &csi.GetPluginInfoResponse{
