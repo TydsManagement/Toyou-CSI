@@ -27,6 +27,7 @@ disk: mod
 
 disk-container:
 	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/docker/Dockerfile  .
+	docker push ${DISK_IMAGE_NAME}:${DISK_VERSION}
 
 yaml:
 	# Copy config.yaml to the image
@@ -34,6 +35,7 @@ yaml:
 	docker cp $(CONFIG_FILE) temp-csi-image:/etc/config/config.yaml
 	docker commit temp-csi-image $(DISK_IMAGE_NAME):${DISK_VERSION}
 	docker rm temp-csi-image
+	docker push ${DISK_IMAGE_NAME}:${DISK_VERSION}
 
 install:
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -

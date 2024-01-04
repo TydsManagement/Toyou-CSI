@@ -27,6 +27,8 @@ LABEL description="Toyou tyds CSI plugin"
 RUN yum install file which e2fsprogs xfsprogs mount e2fsprogs multipath-tools sg3_utils device-mapper-multipath lsscsi -y
 
 COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
+COPY deploy/kubernetes/base/config.yaml /etc/config/config.yaml
+RUN mkdir -p /tcsi && touch /tcsi/csi.sock && chmod 777 /tcsi/csi.sock
 RUN mkdir -p /etc/config
 RUN chmod +x /toyou-csi-driver && \
     mkdir -p /var/log/toyou-csi-driver

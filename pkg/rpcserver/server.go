@@ -34,7 +34,7 @@ import (
 // Run initializes and starts the CSI driver's gRPC server.
 func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter *mount.SafeFormatAndMount, endpoint string) {
 	// Listen on the specified endpoint
-	listener, err := net.Listen("tcp", endpoint)
+	listener, err := net.Listen("unix", endpoint)
 	if err != nil {
 		klog.Fatalf("Failed to listen: %v", err)
 	}
