@@ -21,7 +21,6 @@ spec:
             privileged: true
             capabilities:
               add: ["SYS_ADMIN"]
-
             allowPrivilegeEscalation: true
           image: hero74/toyou-csi:v1.0.1
           args:
@@ -36,46 +35,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: CSI_ENDPOINT
-              value: unix:///tcsi/csi.sock
+              value: /tcsi/csi.sock
           imagePullPolicy: "Always"
           volumeMounts:
             - mountPath: /tcsi
-              name: socket-dir
-            - mountPath: /var/lib/kubelet/pods
-              mountPropagation: Bidirectional
-              name: mountpoint-dir
-            - mountPath: /var/lib/kubelet/plugins
-              mountPropagation: Bidirectional
-              name: plugins-dir
-            - mountPath: /dev
-              name: host-dev
-            - name: log-dir
-              mountPath: /var/log/csi/
-            - name: host-root
-              mountPath: /host
-            - name: chroot-iscsiadm
-              mountPath: /sbin/iscsiadm
-              subPath: iscsiadm
-            - name: timezone
-              mountPath: /etc/localtime
-              readOnly: true
-            - name: logrotate
-              mountPath: /etc/logrotate.d
-            - name: utab
-              mountPath: /run/mount
-              mountPropagation: Bidirectional
-            - name: multipath
-              mountPath: /etc/multipath.conf
-            - mountPath: /sys #rescan-scsi-bus.sh require this path
-              name: sysfs
-            - name: udev
-              mountPath: /run/udev
-              readOnly: true
+              name: tcsi-socket
         - name: driver-registrar
           image: quay.io/k8scsi/csi-node-driver-registrar:v1.1.0
           args:
@@ -89,73 +54,13 @@ spec:
                   fieldPath: spec.nodeName
           volumeMounts:
             - mountPath: /tcsi
-              name: socket-dir
-            - mountPath: /registration
-              name: registration-dir
-            - name: timezone
-              mountPath: /etc/localtime
+              name: tcsi-socket
       volumes:
+        - name: tcsi-socket
+          hostPath:
+            path: /tcsi
+            type: DirectoryOrCreate
         - hostPath:
             path: /var/lib/kubelet/plugins/csi.toyou.com
             type: DirectoryOrCreate
           name: socket-dir
-        - hostPath:
-            path: /var/lib/kubelet/pods
-            type: DirectoryOrCreate
-          name: mountpoint-dir
-        - hostPath:
-            path: /var/lib/kubelet/plugins_registry
-            type: Directory
-          name: registration-dir
-        - hostPath:
-            path: /var/lib/kubelet/plugins
-            type: Directory
-          name: plugins-dir
-        - name: log-dir
-          hostPath:
-            path: /var/log/csi/
-            type: DirectoryOrCreate
-        - name: host-dev
-          hostPath:
-            path: /dev
-        - name: timezone
-          hostPath:
-            path: /etc/localtime
-        - name: logrotate
-          hostPath:
-            path: /etc/logrotate.d
-        - name: utab
-          hostPath:
-            path: /run/mount
-        - name: multipath
-          hostPath:
-            path: /etc/multipath.conf
-            type: FileOrCreate
-        - name: chroot-iscsiadm
-          configMap:
-            defaultMode: 0755
-            name: tcsi-iscsiadm
-        - name: host-root
-          hostPath:
-            path: /
-            type: Directory
-        - name: sysfs
-          hostPath:
-            path: /sys
-        - name: udev
-          hostPath:
-            path: /run/udev
-            type: Directory
-
-      imagePullSecrets:
-        - name: regcred
----
-# https://github.com/jparklab/synology-csi/issues/6
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: tcsi-iscsiadm
-data:
-  iscsiadm: |
-    #!/bin/bash
-    chroot /host /sbin/iscsiadm "$@"
