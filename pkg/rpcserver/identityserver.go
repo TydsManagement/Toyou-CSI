@@ -64,11 +64,14 @@ func (is *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginI
 		klog.Error("Failed to get plugin info: driver is missing version. Error:", err)
 		return nil, err
 	}
-
-	return &csi.GetPluginInfoResponse{
+	response := &csi.GetPluginInfoResponse{
 		Name:          is.Driver.GetName(),
 		VendorVersion: is.Driver.GetVersion(),
-	}, nil
+	}
+
+	klog.Infof("Returning CSI plugin info: %+v", response)
+
+	return response, nil
 }
 
 // GetPluginCapabilities returns the capabilities of the plugin.

@@ -9,7 +9,7 @@ spec:
     app: csi-sidecar-iscsi-provisioner
   ports:
     - name: dummy
-      port: 12345
+      port: 12139
 
 ---
 kind: Deployment
@@ -26,16 +26,15 @@ spec:
       labels:
         external-attacher: csi-sidecar-iscsi-provisioner
     spec:
-      serviceAccount: block-csi-provisioner
+      serviceAccountName: block-csi-provisioner
       containers:
         - name: block-csi-provisioner
-          image: quay.io/k8scsi/csi-provisioner:v1.5.0
+          image: quay.io/k8scsi/csi-provisioner:v2.1.2
           args:
             - "--csi-address=$(ADDRESS)"
-            - "--enable-leader-election=true"
-            - "--leader-election-type=leases"
             - "--worker-threads=10"
             - "--timeout=20s"
+            - "--add_dir_header=true"
           env:
             - name: ADDRESS
               value: /tcsi/csi.sock
@@ -48,7 +47,7 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/csi.toyou.com
+            path: /var/lib/kubelet/plugins/block.csi.toyou.com
             type: DirectoryOrCreate
         - name: timezone
           hostPath:

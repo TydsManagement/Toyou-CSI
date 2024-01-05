@@ -9,7 +9,7 @@ spec:
     app: csi-sidecar-iscsi-attacher
   ports:
     - name: dummy
-      port: 12345
+      port: 12139
 
 ---
 kind: Deployment

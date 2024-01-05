@@ -39,7 +39,7 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create","watch","patch"]
-  - apiGroups: ["sds.xsky.com"]
+  - apiGroups: ["tyds.toyou.com"]
     resources: ["accesspaths"]
     verbs: ["get", "list", "create", "delete", "update","watch","patch"]
 

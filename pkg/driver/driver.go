@@ -49,7 +49,7 @@ type InitDiskDriverInput struct {
 // Create disk driver
 func NewToyouDriver() *ToyouDriver {
 	return &ToyouDriver{
-		name:          "disk.csi.toyou.com",
+		name:          "csi.toyou.com",
 		version:       "1.0.0",
 		volumeCap:     make([]*csi.VolumeCapability_AccessMode, 0),
 		controllerCap: make([]*csi.ControllerServiceCapability, 0),

@@ -14,22 +14,32 @@
 # | limitations under the License.
 # +-------------------------------------------------------------------------
 
+# Builder stage
 FROM golang:1.21 as builder
 WORKDIR /toyou-csi
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -mod=vendor  -ldflags "-s -w" -o  _output/toyou-csi-driver ./cmd/disk
+RUN CGO_ENABLED=0 GOOS=linux go build -a -mod=vendor -ldflags "-s -w" -o _output/toyou-csi-driver ./cmd/disk
 
+# Final image stage
 FROM centos:7
 LABEL maintainers="Toyou"
 LABEL description="Toyou tyds CSI plugin"
 
-#RUN yum update -y && \
-RUN yum install file which e2fsprogs xfsprogs mount e2fsprogs multipath-tools sg3_utils device-mapper-multipath lsscsi -y
+# Install required packages
+RUN yum install -y file which e2fsprogs xfsprogs e2fsprogs-libs multipath-tools sg3_utils device-mapper-multipath lsscsi
 
+# Copy the built binary and configuration files
 COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
 COPY deploy/kubernetes/base/config.yaml /etc/config/config.yaml
-RUN mkdir -p /tcsi && touch /tcsi/csi.sock && chmod 777 /tcsi/csi.sock
-RUN mkdir -p /etc/config
-RUN chmod +x /toyou-csi-driver && \
+
+# Create required directories and set permissions
+RUN mkdir -p /tcsi && \
+    touch /tcsi/csi.sock && \
+    chmod 777 /tcsi/csi.sock && \
+    mkdir -p /var/lib/kubelet/plugins/block.csi.toyou.com && \
+    touch /var/lib/kubelet/plugins/block.csi.toyou.com/csi.sock && \
+    chmod 777 /var/lib/kubelet/plugins/block.csi.toyou.com/csi.sock && \
     mkdir -p /var/log/toyou-csi-driver
+
+# Set the entrypoint
 ENTRYPOINT ["/toyou-csi-driver"]
