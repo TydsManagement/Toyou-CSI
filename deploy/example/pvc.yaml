@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: iscsi-pvc
+  name: toyou-test-pvc
 spec:
   accessModes:
   - ReadWriteOnce
   resources:
     requests:
       storage: 5Gi
-  storageClassName: csi-iscsi
+  storageClassName: csi-toyou-storageclass

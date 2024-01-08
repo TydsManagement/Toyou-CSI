@@ -33,13 +33,7 @@ COPY --from=builder /toyou-csi/_output/toyou-csi-driver /toyou-csi-driver
 COPY deploy/kubernetes/base/config.yaml /etc/config/config.yaml
 
 # Create required directories and set permissions
-RUN mkdir -p /tcsi && \
-    touch /tcsi/csi.sock && \
-    chmod 777 /tcsi/csi.sock && \
-    mkdir -p /var/lib/kubelet/plugins/block.csi.toyou.com && \
-    touch /var/lib/kubelet/plugins/block.csi.toyou.com/csi.sock && \
-    chmod 777 /var/lib/kubelet/plugins/block.csi.toyou.com/csi.sock && \
-    mkdir -p /var/log/toyou-csi-driver
+
 
 # Set the entrypoint
 ENTRYPOINT ["/toyou-csi-driver"]

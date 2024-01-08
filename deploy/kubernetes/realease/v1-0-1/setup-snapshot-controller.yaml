@@ -21,7 +21,7 @@ spec:
       labels:
         app: snapshot-controller
     spec:
-      serviceAccount: snapshot-controller
+      serviceAccountName: snapshot-controller
       containers:
         - name: snapshot-controller
           image: quay.io/k8scsi/snapshot-controller:v3.0.3
