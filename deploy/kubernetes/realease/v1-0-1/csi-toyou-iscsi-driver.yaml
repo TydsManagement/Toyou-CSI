@@ -14,9 +14,9 @@ spec:
       initContainers:
         - name: create-socket-dir
           image: busybox
-          command: [ "mkdir", "-p", "/var/lib/kubelet/plugins/block.csi.toyou.com" ]
+          command: [ "mkdir", "-p", "/var/lib/kubelet/plugins/csi.toyou.com" ]
           volumeMounts:
-            - mountPath: /var/lib/kubelet/plugins/block.csi.toyou.com
+            - mountPath: /var/lib/kubelet/plugins/csi.toyou.com
               name: socket-dir
       serviceAccountName: block-csi-nodeplugin
       hostNetwork: true
@@ -56,15 +56,15 @@ spec:
           args:
             - "--v=5"
             - "--csi-address=/tcsi/csi.sock"
-            - "--kubelet-registration-path=/var/lib/kubelet/plugins/block.csi.toyou.com/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/csi.toyou.com/csi.sock"
           env:
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
           volumeMounts:
-            - mountPath: /tcsi
-              name: socket-dir
+            - name: socket-dir
+              mountPath: /tcsi
             - name: registration-dir
               mountPath: /registration
             - name: timezone
@@ -72,7 +72,7 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/block.csi.toyou.com
+            path: /var/lib/kubelet/plugins/csi.toyou.com
             type: DirectoryOrCreate
         - name: registration-dir
           hostPath:

@@ -86,7 +86,7 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/block.csi.toyou.com
+            path: /var/lib/kubelet/plugins/csi.toyou.com
             type: DirectoryOrCreate
         - name: timezone
           hostPath:
