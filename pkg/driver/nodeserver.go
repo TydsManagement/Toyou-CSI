@@ -1,4 +1,4 @@
-package rpcserver
+package driver
 
 import (
 	"context"
@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"toyou-csi/pkg/common"
-	"toyou-csi/pkg/driver"
 	"toyou-csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
@@ -22,18 +22,20 @@ import (
 
 // NodeServer is the server API for Node service.
 type NodeServer struct {
-	Driver      *driver.ToyouDriver
+	*csicommon.DefaultNodeServer
+	Driver      *ToyouDriver
 	TydsManager service.TydsManager
 	Mounter     *mount.SafeFormatAndMount
 	Locks       *common.ResourceLocks
 }
 
 // NewNodeServer creates a new NodeServer.
-func NewNodeServer(d *driver.ToyouDriver, tm service.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
+func NewNodeServer(d *ToyouDriver, tm service.TydsManager, mnt *mount.SafeFormatAndMount) *NodeServer {
 	return &NodeServer{
-		Driver:      d,
-		TydsManager: tm,
-		Mounter:     mnt,
+		DefaultNodeServer: csicommon.NewDefaultNodeServer(d.Driver),
+		Driver:            d,
+		TydsManager:       tm,
+		Mounter:           mnt,
 	}
 }
 

@@ -6,6 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.9.0
 	github.com/golang/protobuf v1.5.3
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
+	github.com/kubernetes-csi/drivers v1.0.2
 	google.golang.org/grpc v1.59.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/klog v1.0.0
@@ -13,7 +14,10 @@ require (
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 )
 
-require k8s.io/klog/v2 v2.110.1 // indirect
+require (
+	github.com/golang/glog v1.1.2 // indirect
+	k8s.io/klog/v2 v2.110.1 // indirect
+)
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

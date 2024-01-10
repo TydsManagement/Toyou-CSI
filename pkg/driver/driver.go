@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
 	"k8s.io/klog"
 )
 
@@ -32,6 +33,12 @@ type ToyouDriver struct {
 	controllerCap []*csi.ControllerServiceCapability
 	nodeCap       []*csi.NodeServiceCapability
 	pluginCap     []*csi.PluginCapability
+
+	IdS *IdentityServer
+	NS  *NodeServer
+	CS  *ControllerServer
+
+	Driver *csicommon.CSIDriver
 }
 
 type InitDiskDriverInput struct {
@@ -45,8 +52,7 @@ type InitDiskDriverInput struct {
 	PluginCap     []*csi.PluginCapability
 }
 
-// GetDiskDriver
-// Create disk driver
+// NewToyouDriver GetDiskDriver
 func NewToyouDriver() *ToyouDriver {
 	return &ToyouDriver{
 		name:          "csi.toyou.com",
@@ -111,8 +117,8 @@ func (d *ToyouDriver) ValidateControllerServiceRequest(c csi.ControllerServiceCa
 		return true
 	}
 
-	for _, cap := range d.controllerCap {
-		if c == cap.GetRpc().Type {
+	for _, controllerServiceCapability := range d.controllerCap {
+		if c == controllerServiceCapability.GetRpc().Type {
 			return true
 		}
 	}
@@ -123,8 +129,8 @@ func (d *ToyouDriver) ValidateNodeServiceRequest(c csi.NodeServiceCapability_RPC
 	if c == csi.NodeServiceCapability_RPC_UNKNOWN {
 		return true
 	}
-	for _, cap := range d.nodeCap {
-		if c == cap.GetRpc().Type {
+	for _, nodeServiceCapability := range d.nodeCap {
+		if c == nodeServiceCapability.GetRpc().Type {
 			return true
 		}
 	}
@@ -140,8 +146,8 @@ func (d *ToyouDriver) ValidateVolumeCapability(cap *csi.VolumeCapability) bool {
 }
 
 func (d *ToyouDriver) ValidateVolumeCapabilities(caps []*csi.VolumeCapability) bool {
-	for _, cap := range caps {
-		if !d.ValidateVolumeAccessMode(cap.GetAccessMode().GetMode()) {
+	for _, volumeCapability := range caps {
+		if !d.ValidateVolumeAccessMode(volumeCapability.GetAccessMode().GetMode()) {
 			return false
 		}
 	}

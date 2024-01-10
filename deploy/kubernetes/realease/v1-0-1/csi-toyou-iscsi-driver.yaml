@@ -43,7 +43,7 @@ spec:
                 fieldRef:
                   fieldPath: spec.nodeName
             - name: CSI_ENDPOINT
-              value: /tcsi/csi.sock
+              value: unix:///tcsi/csi.sock
           imagePullPolicy: "Always"
           volumeMounts:
             - mountPath: /tcsi

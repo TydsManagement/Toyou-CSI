@@ -24,7 +24,6 @@ import (
 
 	"toyou-csi/pkg/common"
 	"toyou-csi/pkg/driver"
-	"toyou-csi/pkg/rpcserver"
 	"toyou-csi/pkg/service"
 
 	"k8s.io/klog"
@@ -38,7 +37,7 @@ const (
 
 var (
 	configPath = flag.String("config", defaultConfigPath, "config file path")
-	endpoint   = flag.String("endpoint", "/tcsi/csi.sock", "CSI endpoint")
+	endpoint   = flag.String("endpoint", "unix:///tcsi/csi.sock", "CSI endpoint")
 	nodeID     = flag.String("nodeid", "default-node-id", "CSI node ID")
 	maxVolume  = flag.Int64("maxvolume", 255, "Maximum volume value")
 )
@@ -92,5 +91,5 @@ func mainProcess(config *Config) {
 	mounter := common.NewSafeMounter()
 	TydsDriver := driver.NewToyouDriver()
 	TydsDriver.InitDiskDriver(diskDriverInput)
-	rpcserver.Run(TydsDriver, tydsManager, mounter, config.Endpoint)
+	driver.Run(TydsDriver, tydsManager, mounter, config.Endpoint)
 }

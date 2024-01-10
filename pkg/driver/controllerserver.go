@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rpcserver
+package driver
 
 import (
 	"context"
 
-	"toyou-csi/pkg/driver"
 	"toyou-csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
@@ -31,7 +31,8 @@ import (
 
 // ControllerServer implements the CSI controller service.
 type ControllerServer struct {
-	Driver      *driver.ToyouDriver
+	*csicommon.DefaultControllerServer
+	Driver      *ToyouDriver
 	TydsManager service.TydsManager
 }
 
@@ -40,10 +41,11 @@ func (cs *ControllerServer) ControllerModifyVolume(ctx context.Context, request 
 }
 
 // NewControllerServer creates a new ControllerServer.
-func NewControllerServer(d *driver.ToyouDriver, tm service.TydsManager) *ControllerServer {
+func NewControllerServer(d *ToyouDriver, tm service.TydsManager) *ControllerServer {
 	return &ControllerServer{
-		Driver:      d,
-		TydsManager: tm,
+		DefaultControllerServer: csicommon.NewDefaultControllerServer(d.Driver),
+		Driver:                  d,
+		TydsManager:             tm,
 	}
 }
 

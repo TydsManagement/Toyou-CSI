@@ -14,15 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rpcserver
+package driver
 
 import (
 	"context"
 
-	"toyou-csi/pkg/driver"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	csicommon "github.com/kubernetes-csi/drivers/pkg/csi-common"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog"
@@ -30,13 +29,15 @@ import (
 
 // IdentityServer implements the IdentityServer CSI gRPC interface.
 type IdentityServer struct {
-	Driver *driver.ToyouDriver
+	*csicommon.DefaultIdentityServer
+	Driver *ToyouDriver
 }
 
 // NewIdentityServer creates a new IdentityServer.
-func NewIdentityServer(d *driver.ToyouDriver) *IdentityServer {
+func NewIdentityServer(d *ToyouDriver) *IdentityServer {
 	return &IdentityServer{
-		Driver: d,
+		DefaultIdentityServer: csicommon.NewDefaultIdentityServer(d.Driver),
+		Driver:                d,
 	}
 }
 
