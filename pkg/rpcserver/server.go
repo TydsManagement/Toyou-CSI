@@ -33,6 +33,7 @@ import (
 
 // Run initializes and starts the CSI driver's gRPC server.
 func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter *mount.SafeFormatAndMount, endpoint string) {
+
 	klog.Info("Starting CSI driver")
 
 	// Listen on the specified endpoint
@@ -59,11 +60,15 @@ func Run(driver *driver.ToyouDriver, tydsManager service.TydsManager, mounter *m
 	}()
 
 	// Wait for termination signal
+	waitForTermination(server)
+}
+
+// waitForTermination waits for termination signals and gracefully stops the gRPC server.
+func waitForTermination(server *grpc.Server) {
 	klog.Info("Waiting for termination signal")
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 	<-sigCh
-
 	klog.Info("Received termination signal. Shutting down gRPC server")
 	server.GracefulStop()
 

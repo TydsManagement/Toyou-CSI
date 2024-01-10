@@ -27,7 +27,7 @@ func NewTydsClient(hostip string, port int, username string, password string) *T
 	client := &TydsClient{
 		Username:      username,
 		Password:      base64.StdEncoding.EncodeToString([]byte(password)),
-		BaseURL:       fmt.Sprintf("https://%s:%d/api", hostip, port),
+		BaseURL:       fmt.Sprintf("http://%s:%d/api", hostip, port),
 		SnapshotCount: 999,
 		Token:         "",
 		IP:            getLocalIP(),

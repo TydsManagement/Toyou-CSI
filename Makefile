@@ -53,7 +53,7 @@ fmt-deep: fmt
 	gofmt -s -w -l ./pkg/cloud/ ./pkg/common/ ./pkg/driver ./pkg/rpcserver
 
 sanity-test:
-	nohup ${ROOT_PATH}/csi-sanity --csi.endpoint /var/lib/kubelet/plugins/csi.toyou.com/csi.sock -csi.testvolumeexpandsize 21474836480  -ginkgo.noColor &
+	nohup ${ROOT_PATH}/csi-sanity --csi.endpoint /var/lib/kubelet/plugins/csi.toyou2.com/csi.sock -csi.testvolumeexpandsize 21474836480  -ginkgo.noColor &
 
 clean:
 	go clean -r -x ./...

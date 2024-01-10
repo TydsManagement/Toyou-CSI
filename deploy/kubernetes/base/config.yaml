@@ -1,5 +1,5 @@
 hostIP: "172.10.31.80"
-port: 8000
+port: 80
 username: "superuser"
 password: "toyou@123"
 poolName: "Pool-1"
