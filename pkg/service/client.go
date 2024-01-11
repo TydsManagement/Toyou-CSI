@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 type TydsClient struct {
@@ -35,55 +37,65 @@ func NewTydsClient(hostip string, port int, username string, password string) *T
 	return client
 }
 
-func (c *TydsClient) GetToken() string {
+func (c *TydsClient) GetToken() (string, error) {
 	if c.Token != "" && time.Now().Unix() < c.TokenExpiration {
 		// Token is not expired, directly return the existing Token
-		return c.Token
+		return c.Token, nil
 	}
 
 	// Token has expired or has not been obtained before,
 	// retrieving the Token again
-	c.Token = c.Login()
+	token, err := c.Login()
+	if err != nil {
+		klog.Errorf("Failed to obtain token: %v", err)
+		return "", err
+	}
+
 	// expire time set to 5 hours, less than actual 6.5 hours
 	c.TokenExpiration = time.Now().Unix() + 300*60
-	return c.Token
+	c.Token = token
+	return c.Token, nil
 }
 
 func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) (interface{}, error) {
 	jsonParams, err := json.Marshal(params)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to marshal JSON params: %v", err)
 	}
 
 	fullURL := fmt.Sprintf("%s/%s", c.BaseURL, url)
 	request, err := http.NewRequest(method, fullURL, bytes.NewReader(jsonParams))
 	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	token, err := c.GetToken()
+	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("Authorization", c.GetToken())
+	request.Header.Set("Authorization", token)
 	request.Header.Set("Content-Type", "application/json")
 
 	client := http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to make HTTP request: %v", err)
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
-		if err != nil {
-			panic(err)
+
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			err = fmt.Errorf("failed to close response body: %v", closeErr)
 		}
-	}(response.Body)
+	}()
 
 	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	var jsonResponse map[string]interface{}
 	err = json.Unmarshal(responseData, &jsonResponse)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse response JSON: %v", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
@@ -98,35 +110,50 @@ func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) 
 	return jsonResponse["data"], nil
 }
 
-func (c *TydsClient) Login() string {
+func decodeBase64(encodedString string) string {
+	decodedBytes, err := base64.StdEncoding.DecodeString(encodedString)
+	if err != nil {
+		klog.Errorf("Failed to decode string: %v", err)
+		return ""
+	}
+	return string(decodedBytes)
+}
+
+func (c *TydsClient) Login() (string, error) {
 	params := map[string]interface{}{
 		"REMOTE_ADDR": c.IP,
-		"username":    c.Username,
-		"password":    c.Password,
+		"username":    decodeBase64(c.Username),
+		"password":    decodeBase64(c.Password),
 	}
-	jsonParams, _ := json.Marshal(params)
+	jsonParams, err := json.Marshal(params)
+	if err != nil {
+		klog.Errorf("Failed to marshal JSON params: %v", err)
+		return "", err
+	}
 
 	url := fmt.Sprintf("%s/auth/login/", c.BaseURL)
 	responseData, err := c.doRequest("POST", url, jsonParams)
 	if err != nil {
-		// Handle login request failure
-		panic(err)
+		klog.Errorf("Failed to make login request: %v", err)
+		return "", err
 	}
+	klog.Infof("Login response: %s", string(responseData)) // 将响应内容添加到日志中
 
 	var jsonResponse map[string]interface{}
 	err = json.Unmarshal(responseData, &jsonResponse)
 	if err != nil {
-		// Handle response parsing failure
-		panic(err)
+		klog.Errorf("Failed to parse login response: %v", err)
+		return "", err
 	}
 
 	token, ok := jsonResponse["token"].(string)
 	if !ok {
-		// Handle token not found in the response
-		panic("Authentication token not found")
+		err := fmt.Errorf("authentication token not found in response")
+		klog.Error(err)
+		return "", err
 	}
 
-	return token
+	return token, nil
 }
 
 func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, error) {
@@ -141,13 +168,14 @@ func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	defer func(Body io.ReadCloser) {
-		err := Body.Close()
+	defer func() {
+		err := response.Body.Close()
 		if err != nil {
-			panic(err)
+			// Handle error if closing the response body fails
+			// Log or handle the error according to your needs
+			fmt.Printf("Failed to close response body: %v\n", err)
 		}
-	}(response.Body)
-
+	}()
 	responseData, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, err

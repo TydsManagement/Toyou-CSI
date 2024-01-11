@@ -14,9 +14,9 @@ spec:
       initContainers:
         - name: create-socket-dir
           image: busybox
-          command: [ "mkdir", "-p", "/var/lib/kubelet/plugins/csi.toyou2.com" ]
+          command: [ "mkdir", "-p", "/var/lib/kubelet/plugins/csi.toyou.com" ]
           volumeMounts:
-            - mountPath: /var/lib/kubelet/plugins/csi.toyou2.com
+            - mountPath: /var/lib/kubelet/plugins/csi.toyou.com
               name: socket-dir
       serviceAccountName: block-csi-nodeplugin
       hostNetwork: true
@@ -51,12 +51,15 @@ spec:
             - mountPath: /var/lib/kubelet/plugins
               mountPropagation: Bidirectional
               name: plugins-dir
+            - name: credentials
+              mountPath: /etc/config/config.yaml
+              subPath: config.yaml
         - name: driver-registrar
           image: quay.io/k8scsi/csi-node-driver-registrar:v2.1.0
           args:
             - "--v=5"
             - "--csi-address=/tcsi/csi.sock"
-            - "--kubelet-registration-path=/var/lib/kubelet/plugins/csi.toyou2.com/csi.sock"
+            - "--kubelet-registration-path=/var/lib/kubelet/plugins/csi.toyou.com/csi.sock"
           env:
             - name: KUBE_NODE_NAME
               valueFrom:
@@ -72,7 +75,7 @@ spec:
       volumes:
         - name: socket-dir
           hostPath:
-            path: /var/lib/kubelet/plugins/csi.toyou2.com
+            path: /var/lib/kubelet/plugins/csi.toyou.com
             type: DirectoryOrCreate
         - name: registration-dir
           hostPath:
@@ -85,3 +88,6 @@ spec:
           hostPath:
             path: /var/lib/kubelet/plugins
             type: Directory
+        - name: credentials
+          secret:
+            secretName: tyds-credential

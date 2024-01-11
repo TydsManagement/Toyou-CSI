@@ -32,7 +32,6 @@ disk-container:
 yaml:
 	# Copy config.yaml to the image
 	docker create --name temp-csi-image $(DISK_IMAGE_NAME):${DISK_VERSION}
-	docker cp $(CONFIG_FILE) temp-csi-image:/etc/config/config.yaml
 	docker commit temp-csi-image $(DISK_IMAGE_NAME):${DISK_VERSION}
 	docker rm temp-csi-image
 	docker push ${DISK_IMAGE_NAME}:${DISK_VERSION}
@@ -53,7 +52,7 @@ fmt-deep: fmt
 	gofmt -s -w -l ./pkg/cloud/ ./pkg/common/ ./pkg/driver ./pkg/rpcserver
 
 sanity-test:
-	nohup ${ROOT_PATH}/csi-sanity --csi.endpoint /var/lib/kubelet/plugins/csi.toyou2.com/csi.sock -csi.testvolumeexpandsize 21474836480  -ginkgo.noColor &
+	nohup ${ROOT_PATH}/csi-sanity --csi.endpoint /var/lib/kubelet/plugins/csi.toyou.com/csi.sock -csi.testvolumeexpandsize 21474836480  -ginkgo.noColor &
 
 clean:
 	go clean -r -x ./...
