@@ -32,7 +32,7 @@ import (
 const (
 	version              = "1.0.1"
 	defaultProvisionName = "csi.toyou.com"
-	defaultConfigPath    = "/etc/config/config.yaml"
+	defaultConfigPath    = "/etc/config/"
 )
 
 var (
@@ -71,7 +71,7 @@ func main() {
 }
 
 func mainProcess(config *Config) {
-	tydsManager, err := service.NewManagerClientFromConfig(config.ConfigPath)
+	tydsManager, err := service.NewManagerClientFromSecret(config.ConfigPath)
 	if err != nil {
 		klog.Fatal(err)
 	}

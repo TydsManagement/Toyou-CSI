@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ type TydsClient struct {
 }
 
 func NewTydsClient(hostip string, port int, username string, password string) *TydsClient {
+	klog.Infof("Get client args: hostip=%s, port=%d, username=%s, password=%s", hostip, port, username, password)
 	client := &TydsClient{
 		Username:      username,
 		Password:      base64.StdEncoding.EncodeToString([]byte(password)),
@@ -110,20 +112,23 @@ func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) 
 	return jsonResponse["data"], nil
 }
 
-func decodeBase64(encodedString string) string {
-	decodedBytes, err := base64.StdEncoding.DecodeString(encodedString)
-	if err != nil {
-		klog.Errorf("Failed to decode string: %v", err)
-		return ""
-	}
-	return string(decodedBytes)
+type LoginResponse struct {
+	Code string `json:"code"`
+	Data struct {
+		UserID     int    `json:"userId"`
+		Token      string `json:"token"`
+		RoleNameEn string `json:"role_name_en"`
+		RoleNameZh string `json:"role_name_zh"`
+	} `json:"data"`
+	Message string `json:"message"`
 }
 
 func (c *TydsClient) Login() (string, error) {
+	// 构建请求参数
 	params := map[string]interface{}{
 		"REMOTE_ADDR": c.IP,
-		"username":    decodeBase64(c.Username),
-		"password":    decodeBase64(c.Password),
+		"username":    c.Username,
+		"password":    c.Password,
 	}
 	jsonParams, err := json.Marshal(params)
 	if err != nil {
@@ -131,23 +136,28 @@ func (c *TydsClient) Login() (string, error) {
 		return "", err
 	}
 
+	// 发起登录请求
 	url := fmt.Sprintf("%s/auth/login/", c.BaseURL)
 	responseData, err := c.doRequest("POST", url, jsonParams)
 	if err != nil {
 		klog.Errorf("Failed to make login request: %v", err)
 		return "", err
 	}
-	klog.Infof("Login response: %s", string(responseData)) // 将响应内容添加到日志中
 
-	var jsonResponse map[string]interface{}
+	// 将响应内容添加到日志中
+	klog.Infof("Login response: %s", string(responseData))
+
+	// 解析登录响应
+	var jsonResponse LoginResponse
 	err = json.Unmarshal(responseData, &jsonResponse)
 	if err != nil {
 		klog.Errorf("Failed to parse login response: %v", err)
 		return "", err
 	}
 
-	token, ok := jsonResponse["token"].(string)
-	if !ok {
+	// 提取 token
+	token := jsonResponse.Data.Token
+	if token == "" {
 		err := fmt.Errorf("authentication token not found in response")
 		klog.Error(err)
 		return "", err
@@ -163,6 +173,9 @@ func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, 
 	}
 	request.Header.Set("Content-Type", "application/json")
 
+	// Print request information
+	klog.Infof("Request: Method=%s, URL=%s, Body=%s", method, url, string(data))
+
 	client := http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
@@ -172,8 +185,7 @@ func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, 
 		err := response.Body.Close()
 		if err != nil {
 			// Handle error if closing the response body fails
-			// Log or handle the error according to your needs
-			fmt.Printf("Failed to close response body: %v\n", err)
+			klog.Errorf("Failed to close response body: %v", err)
 		}
 	}()
 	responseData, err := io.ReadAll(response.Body)
@@ -181,11 +193,46 @@ func (c *TydsClient) doRequest(method string, url string, data []byte) ([]byte, 
 		return nil, err
 	}
 
+	// Print response information
+	klog.Infof("Response: Status=%s, Body=%s", response.Status, string(responseData))
+
 	return responseData, nil
 }
 
 func getLocalIP() string {
-	// Implement your logic to retrieve the local IP address here
+	// 获取所有网络接口的信息
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		// 处理错误，根据你的需求返回适当的默认值或错误信息
+		return ""
+	}
+
+	// 遍历所有网络接口，查找非回环接口的第一个非零 IP 地址
+	for _, iface := range interfaces {
+		// 排除回环接口和无效接口
+		if iface.Flags&net.FlagLoopback == 0 && iface.Flags&net.FlagUp != 0 {
+			addrs, err := iface.Addrs()
+			if err != nil {
+				// 处理错误，根据你的需求返回适当的默认值或错误信息
+				return ""
+			}
+
+			// 遍历接口地址，查找第一个非回环 IPv4 或 IPv6 地址
+			for _, addr := range addrs {
+				ipNet, ok := addr.(*net.IPNet)
+				if ok && !ipNet.IP.IsLoopback() {
+					ip := ipNet.IP
+					// 过滤 IPv6 链路本地地址
+					if !ip.IsLinkLocalUnicast() {
+						// 返回第一个非回环 IPv4 或 IPv6 地址的字符串表示
+						return ip.String()
+					}
+				}
+			}
+		}
+	}
+
+	// 未找到合适的 IP 地址，根据你的需求返回适当的默认值或错误信息
 	return ""
 }
 

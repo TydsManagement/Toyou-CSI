@@ -34,7 +34,6 @@ spec:
             - "--nodeid=$(NODE_ID)"
             - "--endpoint=$(CSI_ENDPOINT)"
             - "--maxvolume=255"
-            - "--config=/etc/config/config.yaml"
           env:
             - name: LOG_LEVEL
               value: "info"
@@ -52,8 +51,8 @@ spec:
               mountPropagation: Bidirectional
               name: plugins-dir
             - name: credentials
-              mountPath: /etc/config/config.yaml
-              subPath: config.yaml
+              mountPath: /etc/config
+              readOnly: true
         - name: driver-registrar
           image: quay.io/k8scsi/csi-node-driver-registrar:v2.1.0
           args:

@@ -19,7 +19,13 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
+
+	"k8s.io/klog"
 )
 
 var _ TydsManager = &Manager{}
@@ -363,21 +369,90 @@ func extractPoolName(host string) (string, error) {
 	return defaultPoolName, nil
 }
 
-func NewManagerClientFromConfig(configPath string) (*Manager, error) {
-	// Read configuration from file
-	config, err := ReadconfigFromFile(configPath)
+func NewManagerClientFromSecret(secretPath string) (*Manager, error) {
+	// Read secret files from the specified directory
+	f, err := os.Open(secretPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	secretFiles, err := f.Readdir(-1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read secret directory: %v", err)
+	}
+	err = f.Close()
 	if err != nil {
 		return nil, err
 	}
 
-	// Create a new instance of TydsClient
-	managerClient := NewTydsClient(config.HostIP, config.Port, config.Username, config.Password)
-	m := Manager{
-		tydsClient: managerClient,
-		poolName:   config.PoolName,
-		stripSize:  config.StripSize,
+	klog.Infof("Get Secret Directory Files: %v", secretFiles)
+
+	// Initialize variables to store configuration values
+	var username, password, hostIP, port, poolName, stripSize string
+
+	// Loop through the secret files
+	for _, file := range secretFiles {
+		// klog.Infof("Get Secret Files Fields: %v", file.Name())
+		// Skip directories and files that are not needed
+		if file.IsDir() || !isRequiredField(file.Name()) {
+			continue
+		}
+
+		fileData, err := os.ReadFile(filepath.Join(secretPath, file.Name()))
+		if err != nil {
+			return nil, fmt.Errorf("failed to read secret file %s: %v", file.Name(), err)
+		}
+
+		// Extract the value from the file data
+		value := string(fileData)
+
+		// Set the corresponding variable based on the file name
+		switch file.Name() {
+		case "username":
+			username = value
+		case "password":
+			password = value
+		case "hostIP":
+			hostIP = value
+		case "port":
+			port = value
+		case "poolName":
+			poolName = value
+		case "stripSize":
+			stripSize = value
+		}
 	}
-	return &m, nil
+
+	// Convert port and stripSize to their respective types
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert port to integer: %v", err)
+	}
+	stripSizeInt, err := strconv.Atoi(stripSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert stripSize to integer: %v", err)
+	}
+
+	// Create a new instance of TydsClient
+	managerClient := NewTydsClient(hostIP, portInt, username, password)
+	m := &Manager{
+		tydsClient: managerClient,
+		poolName:   poolName,
+		stripSize:  stripSizeInt,
+	}
+	return m, nil
+}
+
+// Function to check if a field is required or not
+func isRequiredField(fieldName string) bool {
+	requiredFields := map[string]bool{
+		"username":  true,
+		"password":  true,
+		"hostIP":    true,
+		"port":      true,
+		"poolName":  true,
+		"stripSize": true,
+	}
+	return requiredFields[fieldName]
 }
 
 // findPoolID 根据存储池名称查找存储池 ID。

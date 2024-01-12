@@ -7,16 +7,18 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
 	github.com/kubernetes-csi/drivers v1.0.2
+	github.com/stretchr/testify v1.8.4
 	google.golang.org/grpc v1.59.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/klog v1.0.0
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.29.0
 	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 )
 
 require (
 	github.com/golang/glog v1.1.2 // indirect
-	k8s.io/klog/v2 v2.110.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 )
 
 require (
