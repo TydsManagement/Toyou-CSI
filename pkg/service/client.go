@@ -77,6 +77,8 @@ func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) 
 	request.Header.Set("Authorization", token)
 	request.Header.Set("Content-Type", "application/json")
 
+	klog.Infof("Sending %s request to: %s with body: %s", method, fullURL, string(jsonParams))
+
 	client := http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
@@ -93,6 +95,8 @@ func (c *TydsClient) SendHTTPAPI(url string, params interface{}, method string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
 	}
+
+	klog.Infof("Received response: %s", string(responseData))
 
 	var jsonResponse map[string]interface{}
 	err = json.Unmarshal(responseData, &jsonResponse)
@@ -272,7 +276,7 @@ func (c *TydsClient) GetPools() ([]map[string]interface{}, error) {
 }
 
 func (c *TydsClient) GetVolume(volID string) (interface{}, error) {
-	url := fmt.Sprintf("block/block/%s", volID)
+	url := fmt.Sprintf("block/blocks/%s", volID)
 	response, err := c.SendHTTPAPI(url, nil, "GET")
 	if err != nil {
 		// Handle API request failure
@@ -289,7 +293,7 @@ func (c *TydsClient) GetVolume(volID string) (interface{}, error) {
 }
 
 func (c *TydsClient) GetVolumes() []map[string]interface{} {
-	url := "block/block"
+	url := "block/blocks"
 	response, err := c.SendHTTPAPI(url, nil, "GET")
 	if err != nil {
 		// 处理 API 请求失败
@@ -311,7 +315,7 @@ func (c *TydsClient) GetVolumes() []map[string]interface{} {
 }
 
 func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize int) (string, error) {
-	url := "block/block/"
+	url := "block/blocks/"
 	params := map[string]interface{}{
 		"blockName": volName,
 		"sizeMB":    size,
@@ -338,7 +342,7 @@ func (c *TydsClient) DeleteVolume(volID string) error {
 
 // ExtendVolume 在给定的存储池中扩展指定的卷。
 func (c *TydsClient) ExtendVolume(volName string, poolName string, sizeMB int64) error {
-	url := fmt.Sprintf("block/block/%s/", volName)
+	url := fmt.Sprintf("block/blocks/%s/", volName)
 	params := map[string]interface{}{
 		"blockName": volName,
 		"sizeMB":    sizeMB,
