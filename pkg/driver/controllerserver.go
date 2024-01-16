@@ -19,6 +19,8 @@ package driver
 import (
 	"context"
 	"math"
+	"strconv"
+	"strings"
 
 	"toyou-csi/pkg/service"
 
@@ -86,7 +88,11 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to find volume: %v", nil)
 	}
-	err = cs.TydsManager.DeleteVolume(volId["id"].(string))
+	volIDFloat := volId["id"].(float64)
+	volIDStr := strconv.FormatFloat(volIDFloat, 'f', -1, 64)
+	parts := strings.Split(volIDStr, ".")
+	volIDIntStr := parts[0]
+	err = cs.TydsManager.DeleteVolume(volIDIntStr)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to delete volume: %v", err)
 	}
