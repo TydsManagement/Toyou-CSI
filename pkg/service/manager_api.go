@@ -33,7 +33,7 @@ var _ TydsManager = &Manager{}
 type Manager struct {
 	tydsClient *TydsClient
 	poolName   string
-	stripSize  int
+	stripSize  string
 }
 
 func (m *Manager) FindSnapshot(snapID string) (*interface{}, error) {
@@ -427,17 +427,13 @@ func NewManagerClientFromSecret(secretPath string) (*Manager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert port to integer: %v", err)
 	}
-	stripSizeInt, err := strconv.Atoi(stripSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert stripSize to integer: %v", err)
-	}
 
 	// Create a new instance of TydsClient
 	managerClient := NewTydsClient(hostIP, portInt, username, password)
 	m := &Manager{
 		tydsClient: managerClient,
 		poolName:   poolName,
-		stripSize:  stripSizeInt,
+		stripSize:  stripSize,
 	}
 	return m, nil
 }

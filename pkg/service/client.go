@@ -314,7 +314,7 @@ func (c *TydsClient) GetVolumes() []map[string]interface{} {
 	return volumes
 }
 
-func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize int) (string, error) {
+func (c *TydsClient) CreateVolume(volName string, size int, poolName string, stripeSize string) (string, error) {
 	url := "block/blocks/"
 	params := map[string]interface{}{
 		"blockName": volName,

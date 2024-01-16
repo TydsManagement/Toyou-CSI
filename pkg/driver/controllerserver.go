@@ -18,6 +18,7 @@ package driver
 
 import (
 	"context"
+	"math"
 
 	"toyou-csi/pkg/service"
 
@@ -56,7 +57,10 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
 
-	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSize))
+	// Convert bytes to megabytes
+	requestSizeMB := int64(math.Ceil(float64(requestSize) / 1024 / 1024))
+
+	volId, err := cs.TydsManager.CreateVolume(volName, int(requestSizeMB))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to create volume: %v", err)
 	}
@@ -64,7 +68,7 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volId,
-			CapacityBytes: requestSize,
+			CapacityBytes: requestSizeMB,
 			VolumeContext: req.GetParameters(),
 		},
 	}, nil
@@ -74,12 +78,15 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	klog.Info("DeleteVolume called")
 
-	volId := req.GetVolumeId()
-	if volId == "" {
+	volName := req.GetVolumeId()
+	if volName == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID is required")
 	}
-
-	err := cs.TydsManager.DeleteVolume(volId)
+	volId, err := cs.GetVolumeIDByName(volName)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "Failed to find volume: %v", nil)
+	}
+	err = cs.TydsManager.DeleteVolume(volId["id"].(string))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to delete volume: %v", err)
 	}
@@ -262,4 +269,16 @@ func (cs *ControllerServer) ControllerGetVolume(ctx context.Context, req *csi.Co
 	return &csi.ControllerGetVolumeResponse{
 		Volume: csiVolume,
 	}, nil
+}
+
+func (cs *ControllerServer) GetVolumeIDByName(volumeName string) (map[string]interface{}, error) {
+	volumeList := cs.TydsManager.ListVolumes()
+	for _, vol := range volumeList {
+		if vol["blockName"].(string) == volumeName {
+			return vol, nil
+		}
+	}
+	// Returns an empty dictionary indicating that the volume with the
+	// corresponding name was not found
+	return make(map[string]interface{}), nil
 }
