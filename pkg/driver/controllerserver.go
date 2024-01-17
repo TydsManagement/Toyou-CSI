@@ -175,9 +175,13 @@ func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 	klog.Info("ValidateVolumeCapabilities called")
 
 	// This implementation is a placeholder. Replace it with your actual validation logic.
+
+	volumeCapabilities := req.GetVolumeCapabilities()
+	klog.Infof("Validating volume capabilities: %v", volumeCapabilities)
+
 	return &csi.ValidateVolumeCapabilitiesResponse{
 		Confirmed: &csi.ValidateVolumeCapabilitiesResponse_Confirmed{
-			VolumeCapabilities: req.GetVolumeCapabilities(),
+			VolumeCapabilities: volumeCapabilities,
 		},
 	}, nil
 }
@@ -185,8 +189,12 @@ func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 // ControllerGetCapabilities returns the capabilities of the controller service.
 func (cs *ControllerServer) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
 	klog.Info("ControllerGetCapabilities called")
+
+	capabilities := cs.Driver.GetControllerCapability()
+	klog.Infof("Controller capabilities: %v", capabilities)
+
 	return &csi.ControllerGetCapabilitiesResponse{
-		Capabilities: cs.Driver.GetControllerCapability(),
+		Capabilities: capabilities,
 	}, nil
 }
 

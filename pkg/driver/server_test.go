@@ -44,7 +44,7 @@ func (m *FakeTydsManager) FindVolumeByName(volName string) map[string]interface{
 	panic("implement me")
 }
 
-func (m *FakeTydsManager) DeleteVolume(volId string) (err error) {
+func (m *FakeTydsManager) DeleteVolume(volId int) (err error) {
 	// TODO implement me
 	panic("implement me")
 }

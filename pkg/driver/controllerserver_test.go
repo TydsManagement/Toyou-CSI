@@ -85,12 +85,7 @@ func TestDeleteVolume(t *testing.T) {
 
 	// Cleanup or verify any other side effects of the DeleteVolume function if needed
 }
-import (
-"context"
-"testing"
 
-"github.com/stretchr/testify/assert"
-)
 
 func TestListVolumes(t *testing.T) {
 	// 创建一个 ControllerServer 实例，或使用已有的实例
@@ -127,6 +122,10 @@ func TestControllerPublishVolume(t *testing.T) {
 	resp, err := cs.ControllerPublishVolume(context.Background(), req)
 	assert.NoError(t, err) // 确保没有返回错误
 
+	// 添加断言以验证返回结果
+	assert.NotNil(t, resp) // 确保返回的响应不为 nil
+	// 根据你的测试需求，添加更多的断言来验证 resp 中包含正确的信息
+
 	// 在这里添加额外的断言，根据你的测试需求验证函数的行为和返回结果
 }
 
@@ -143,7 +142,7 @@ func TestControllerUnpublishVolume(t *testing.T) {
 	}
 
 	// 调用 ControllerUnpublishVolume 函数
-	resp, err := cs.ControllerUnpublishVolume(context.Background(), req)
+	_, err := cs.ControllerUnpublishVolume(context.Background(), req)
 	assert.NoError(t, err) // 确保没有返回错误
 
 	// 在这里添加额外的断言，根据你的测试需求验证函数的行为和返回结果
@@ -159,7 +158,7 @@ func TestValidateVolumeCapabilities(t *testing.T) {
 	}
 
 	// 调用 ValidateVolumeCapabilities 函数
-	resp, err := cs.ValidateVolumeCapabilities(context.Background(), req)
+	_, err := cs.ValidateVolumeCapabilities(context.Background(), req)
 	assert.NoError(t, err) // 确保没有返回错误
 
 	// 在这里添加额外的断言，根据你的测试需求验证函数的行为和返回结果
@@ -175,7 +174,7 @@ func TestControllerGetCapabilities(t *testing.T) {
 	req := &csi.ControllerGetCapabilitiesRequest{}
 
 	// 调用 ControllerGetCapabilities 函数
-	resp, err := cs.ControllerGetCapabilities(context.Background(), req)
+	_, err := cs.ControllerGetCapabilities(context.Background(), req)
 	assert.NoError(t, err) // 确保没有返回错误
 
 	// 在这里添加额外的断言，根据你的测试需求验证函数的行为和返回结果

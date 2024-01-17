@@ -6,6 +6,7 @@ require (
 	github.com/container-storage-interface/spec v1.9.0
 	github.com/golang/protobuf v1.5.3
 	github.com/kubernetes-csi/csi-lib-utils v0.17.0
+	github.com/kubernetes-csi/csi-test v1.1.1
 	github.com/kubernetes-csi/drivers v1.0.2
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/grpc v1.59.0
@@ -18,7 +19,11 @@ require (
 
 require (
 	github.com/golang/glog v1.1.2 // indirect
+	github.com/nxadm/tail v1.4.8 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
+	github.com/onsi/gomega v1.29.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )
 
 require (

@@ -1,8 +1,9 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-   name: csi-toyou-storageclass
+  name: csi-toyou-storageclass
 provisioner: csi.toyou.com
+allowVolumeExpansion: true
 parameters:
-    csi.storage.k8s.io/fstype: xfs
+  csi.storage.k8s.io/fstype: xfs
 reclaimPolicy: Delete

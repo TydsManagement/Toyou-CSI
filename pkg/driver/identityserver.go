@@ -79,7 +79,10 @@ func (is *IdentityServer) GetPluginInfo(ctx context.Context, req *csi.GetPluginI
 func (is *IdentityServer) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	klog.Info("GetPluginCapabilities called")
 
+	capabilities := is.Driver.GetPluginCapability()
+	klog.Infof("Provided capabilities: %v", capabilities)
+
 	return &csi.GetPluginCapabilitiesResponse{
-		Capabilities: is.Driver.GetPluginCapability(),
+		Capabilities: capabilities,
 	}, nil
 }
