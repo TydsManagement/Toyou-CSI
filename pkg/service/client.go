@@ -330,7 +330,7 @@ func (c *TydsClient) CreateVolume(volName string, size int, poolName string, str
 }
 
 func (c *TydsClient) DeleteVolume(volID string) error {
-	url := fmt.Sprintf("block/block/forcedelete/?id=%s", volID)
+	url := fmt.Sprintf("block/recycle/?id=%s", volID)
 	_, err := c.SendHTTPAPI(url, nil, "DELETE")
 	if err != nil {
 		// 发生错误时返回错误信息
