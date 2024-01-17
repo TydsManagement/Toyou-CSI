@@ -29,6 +29,10 @@ disk-container:
 	docker build -t ${DISK_IMAGE_NAME}:${DISK_VERSION} -f deploy/docker/Dockerfile  .
 	docker push ${DISK_IMAGE_NAME}:${DISK_VERSION}
 
+debug:
+	docker build -t hero74/toyou-csi:v1.0.1 -f deploy/docker/Dockerfile --cache-from hero74/toyou-csi:v1.0.1 .
+	docker push ${DISK_IMAGE_NAME}:${DISK_VERSION}
+
 install:
 	kustomize build deploy/kubernetes/overlays/patch|kubectl apply -f -
 

@@ -329,9 +329,13 @@ func (c *TydsClient) CreateVolume(volName string, size int, poolName string, str
 	return volName, nil
 }
 
-func (c *TydsClient) DeleteVolume(volID string) error {
-	url := fmt.Sprintf("block/recycle/?id=%s", volID)
-	_, err := c.SendHTTPAPI(url, nil, "DELETE")
+func (c *TydsClient) DeleteVolume(volID int) error {
+	params := map[string]interface{}{
+		"id": []int{volID},
+	}
+
+	url := "block/recycle/"
+	_, err := c.SendHTTPAPI(url, params, "POST")
 	if err != nil {
 		// 发生错误时返回错误信息
 		return fmt.Errorf("failed to delete volume: %v", err)

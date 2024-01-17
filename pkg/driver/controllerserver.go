@@ -19,8 +19,6 @@ package driver
 import (
 	"context"
 	"math"
-	"strconv"
-	"strings"
 
 	"toyou-csi/pkg/service"
 
@@ -70,8 +68,9 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volId,
-			CapacityBytes: requestSizeMB,
+			CapacityBytes: requestSize,
 			VolumeContext: req.GetParameters(),
+			ContentSource: req.GetVolumeContentSource(),
 		},
 	}, nil
 }
@@ -89,10 +88,10 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 		return nil, status.Errorf(codes.Internal, "Failed to find volume: %v", nil)
 	}
 	volIDFloat := volId["id"].(float64)
-	volIDStr := strconv.FormatFloat(volIDFloat, 'f', -1, 64)
-	parts := strings.Split(volIDStr, ".")
-	volIDIntStr := parts[0]
-	err = cs.TydsManager.DeleteVolume(volIDIntStr)
+	// volIDStr := strconv.FormatFloat(volIDFloat, 'f', -1, 64)
+	// parts := strings.Split(volIDStr, ".")
+	// volIDIntStr := parts[0]
+	err = cs.TydsManager.DeleteVolume(int(volIDFloat))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to delete volume: %v", err)
 	}
@@ -242,7 +241,10 @@ func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 	volumeId := req.GetVolumeId()
 	requiredSize := req.GetCapacityRange().GetRequiredBytes()
 
-	err := cs.TydsManager.ResizeVolume(volumeId, requiredSize)
+	// Convert bytes to megabytes
+	requestSizeMB := int64(math.Ceil(float64(requiredSize) / 1024 / 1024))
+
+	err := cs.TydsManager.ResizeVolume(volumeId, requestSizeMB)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to resize volume: %v", err)
 	}

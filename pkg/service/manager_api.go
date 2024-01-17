@@ -134,15 +134,15 @@ func (m *Manager) CreateVolume(volName string, requestSize int) (volId string, e
 	// poolName string, stripSize int
 	poolName := m.poolName
 	stripSize := m.stripSize
-	volId, err = m.tydsClient.CreateVolume(volName, requestSize, poolName, stripSize)
+	volName, err = m.tydsClient.CreateVolume(volName, requestSize, poolName, stripSize)
 	if err != nil {
 		return "", err
 	}
-	return volId, nil
+	return volName, nil
 }
 
 // DeleteVolume deletes a volume with the given ID
-func (m *Manager) DeleteVolume(volId string) (err error) {
+func (m *Manager) DeleteVolume(volId int) (err error) {
 	err = m.tydsClient.DeleteVolume(volId)
 	if err != nil {
 		return err
@@ -305,10 +305,8 @@ func (m *Manager) ResizeVolume(volId string, newSize int64) error {
 		return fmt.Errorf("failed to get pool name")
 	}
 
-	sizeMB := newSize * 1024 // 将 GB 转换为 MB
-
 	// 扩展卷大小
-	if err := m.tydsClient.ExtendVolume(volumeName, poolName, sizeMB); err != nil {
+	if err := m.tydsClient.ExtendVolume(volumeName, poolName, newSize); err != nil {
 		return fmt.Errorf("failed to extend volume: %v", err)
 	}
 
