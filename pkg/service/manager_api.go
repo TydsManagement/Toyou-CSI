@@ -295,7 +295,7 @@ func (m *Manager) ResizeVolume(volId string, newSize int64) error {
 		return fmt.Errorf("failed to get volume: %v", err)
 	}
 
-	volumeName, ok := volume.(map[string]interface{})["name"].(string)
+	volumeName, ok := volume.(map[string]interface{})["blockName"].(string)
 	if !ok {
 		return fmt.Errorf("failed to get volume name")
 	}
