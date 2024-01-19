@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 
+	"toyou-csi/pkg/common"
 	"toyou-csi/pkg/service"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -35,6 +36,7 @@ type ControllerServer struct {
 	*csicommon.DefaultControllerServer
 	Driver      *ToyouDriver
 	TydsManager service.TydsManager
+	Locks       *common.ResourceLocks
 }
 
 func (cs *ControllerServer) ControllerModifyVolume(ctx context.Context, request *csi.ControllerModifyVolumeRequest) (*csi.ControllerModifyVolumeResponse, error) {
@@ -47,6 +49,7 @@ func NewControllerServer(d *ToyouDriver, tm service.TydsManager) *ControllerServ
 		DefaultControllerServer: csicommon.NewDefaultControllerServer(d.Driver),
 		Driver:                  d,
 		TydsManager:             tm,
+		Locks:                   common.NewResourceLocks(),
 	}
 }
 
@@ -56,6 +59,13 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
+
+	// ensure one call in-flight
+	klog.Infof("Try to lock resource %s", volName)
+	if acquired := cs.Locks.TryAcquire(volName); !acquired {
+		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volName)
+	}
+	defer cs.Locks.Release(volName)
 
 	// Convert bytes to megabytes
 	requestSizeMB := int64(math.Ceil(float64(requestSize) / 1024 / 1024))
@@ -83,6 +93,13 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 	if volName == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID is required")
 	}
+	// ensure one call in-flight
+	klog.Infof("Try to lock resource %s", volName)
+	if acquired := cs.Locks.TryAcquire(volName); !acquired {
+		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volName)
+	}
+	defer cs.Locks.Release(volName)
+
 	volId, err := cs.GetVolumeIDByName(volName)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to find volume: %v", nil)
@@ -248,6 +265,12 @@ func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 
 	volumeId := req.GetVolumeId()
 	requiredSize := req.GetCapacityRange().GetRequiredBytes()
+	// ensure one call in-flight
+	klog.Infof("Try to lock resource %s", volumeId)
+	if acquired := cs.Locks.TryAcquire(volumeId); !acquired {
+		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeId)
+	}
+	defer cs.Locks.Release(volumeId)
 
 	// Convert bytes to megabytes
 	requestSizeMB := int64(math.Ceil(float64(requiredSize) / 1024 / 1024))

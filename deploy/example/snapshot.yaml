@@ -3,6 +3,6 @@ kind: VolumeSnapshot
 metadata:
   name: new-snapshot-demo
 spec:
-  volumeSnapshotClassName: test
+  volumeSnapshotClassName: test-snapshotclass
   source:
-    persistentVolumeClaimName: pvc-iscsi
+    persistentVolumeClaimName: toyou-test-pvc

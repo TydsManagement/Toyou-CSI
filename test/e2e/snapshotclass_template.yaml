@@ -1,0 +1,6 @@
+apiVersion: snapshot.storage.k8s.io/v1beta1
+kind: VolumeSnapshotClass
+metadata:
+  name: csi-toyou-{commit_tag}
+driver: {commit_tag}.csi.toyou.com
+deletionPolicy: Delete

@@ -531,12 +531,21 @@ func (c *TydsClient) GetInitiatorTargetConnections() ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	targetListInterface, ok := res.(map[string]interface{})["target_list"].([]interface{})
+
+	targetListInterface, ok := res.(map[string]interface{})["target_list"]
 	if !ok {
-		return nil, errors.New("target_list not found or has invalid type")
+		return nil, errors.New("target_list not found")
 	}
-	targetList := make([]interface{}, len(targetListInterface))
-	copy(targetList, targetListInterface)
+
+	if targetListInterface == nil {
+		return []interface{}{}, nil // 返回空切片
+	}
+
+	targetList, ok := targetListInterface.([]interface{})
+	if !ok {
+		return nil, errors.New("target_list has invalid type")
+	}
+
 	return targetList, nil
 }
 

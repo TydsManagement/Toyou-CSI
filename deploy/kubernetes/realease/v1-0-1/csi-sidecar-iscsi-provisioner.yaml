@@ -29,7 +29,7 @@ spec:
       serviceAccountName: block-csi-provisioner
       containers:
         - name: block-csi-provisioner
-          image: quay.io/k8scsi/csi-provisioner:v2.1.2
+          image: quay.io/k8scsi/csi-provisioner:v3.4.0
           args:
             - "--csi-address=$(ADDRESS)"
             - "--worker-threads=10"
