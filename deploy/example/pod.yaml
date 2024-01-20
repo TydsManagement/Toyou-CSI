@@ -12,6 +12,6 @@ spec:
   volumes:
    - name: mypvc
      persistentVolumeClaim:
-       claimName: iscsi-pvc
+       claimName: toyou-test-pvc
        readOnly: false
 
