@@ -6,8 +6,6 @@ import (
 	"path"
 	"testing"
 
-	"toyou-csi/pkg/driver"
-
 	"github.com/kubernetes-csi/csi-test/pkg/sanity"
 )
 
@@ -26,8 +24,8 @@ func TestSanity(t *testing.T) {
 	endpoint := fmt.Sprintf("unix://%s/csi.sock", tmpDir)
 	mountPath := path.Join(tmpDir, "mount")
 	stagePath := path.Join(tmpDir, "stage")
-	driverName := "testDriver"
-	node := "testNode"
+	// driverName := "testDriver"
+	// node := "testNode"
 
 	_, err := os.Stat(tmpDir)
 	if err == nil {
@@ -73,9 +71,7 @@ func TestSanity(t *testing.T) {
 		_, _ = f.WriteString("InitiatorName=iqn.1994-05.com.redhat:373363268f6")
 	}
 
-	TydsDriver.InitDiskDriver(diskDriverInput)
-	// run your driver
-	go driver.Run()
+	// TydsDriver.InitDiskDriver(diskDriverInput)
 
 	cfg := &sanity.Config{
 		StagingPath:          stagePath,

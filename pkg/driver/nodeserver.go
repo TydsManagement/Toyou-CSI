@@ -36,6 +36,7 @@ func NewNodeServer(d *ToyouDriver, tm service.TydsManager, mnt *mount.SafeFormat
 		Driver:            d,
 		TydsManager:       tm,
 		Mounter:           mnt,
+		Locks:             common.NewResourceLocks(),
 	}
 }
 
@@ -48,7 +49,7 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	klog.Info(info)
 	// 0. Check node capability
 	if flag := ns.Driver.ValidateNodeServiceRequest(csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME); !flag {
-		return nil, status.Error(codes.Unimplemented, "Node has not stage capability")
+		return nil, status.Error(codes.Unimplemented, "Node does not have stage capability")
 	}
 
 	// 1. Validate the request
@@ -65,21 +66,24 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		return nil, status.Error(codes.InvalidArgument, "Volume capability missing in request")
 	}
 
-	// 2. skip staging if volume is in block mode
+	// 2. Skip staging if volume is in block mode
 	if req.GetVolumeCapability().GetBlock() != nil {
 		klog.Infof("Skipping staging of volume %s on path %s since it's in block mode", volumeID, stagingTargetPath)
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
 
-	// 3. ensure one call in-flight
+	// 3. Ensure one call in-flight
 	klog.Infof("Try to lock resource %s", volumeID)
 	if acquired := ns.Locks.TryAcquire(volumeID); !acquired {
 		return nil, status.Errorf(codes.Aborted, common.OperationPendingFmt, volumeID)
 	}
 	defer ns.Locks.Release(volumeID)
 
-	// 4. set fsType
+	// 4. Set fsType
 	fsType := req.GetVolumeCapability().GetMount().GetFsType()
+	if fsType == "" {
+		fsType = "ext4" // Default to ext4 if fsType is not provided
+	}
 
 	// 5. Fetch the volume from the storage backend
 	volInfo, err := ns.TydsManager.FindVolume(volumeID)
@@ -90,8 +94,8 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 		return nil, status.Errorf(codes.NotFound, "Volume %s not found", volumeID)
 	}
 
-	// 4. Prepare for staging the volume
-	// if volume already mounted
+	// 6. Prepare for staging the volume
+	// If the volume is already mounted
 	notMnt, err := mount.New("").IsLikelyNotMountPoint(stagingTargetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -103,25 +107,21 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 	}
-	// already mount
+	// Already mounted
 	if !notMnt {
 		return &csi.NodeStageVolumeResponse{}, nil
 	}
-	// 5. get device path
-	devicePath := ""
-	devicePrefix := "/dev/disk/by-id/virtio-"
-	devicePath = devicePrefix + volumeID
+
+	// 7. Get device path
+	devicePath := "/dev/disk/by-id/virtio-" + volumeID
 	klog.Infof("Find volume %s's device path is %s", volumeID, devicePath)
 
-	// 6. Mount the volume to the staging path
-	// You may need to handle different VolumeAccessModes and filesystem types.
-	// The following is a generic mount operation:
-	// do mount
+	// 8. Mount the volume to the staging path
 	klog.Infof("Mounting %s to %s format %s...", volumeID, stagingTargetPath, fsType)
 	if err := ns.Mounter.FormatAndMount(devicePath, stagingTargetPath, fsType, []string{}); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	klog.Infof("Mount %s to %s succeed", volumeID, stagingTargetPath)
+	klog.Infof("Mount %s to %s succeeded", volumeID, stagingTargetPath)
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 

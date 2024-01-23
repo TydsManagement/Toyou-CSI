@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"log"
@@ -25,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"k8s.io/klog"
 )
 
@@ -155,35 +157,96 @@ func (m *Manager) ListVolumes() []map[string]interface{} {
 	return volumeList
 }
 
+// 根据 iqn 生成初始化连接的组名
+func generateInitiatorGroupName(iqn string) (string, error) {
+	// 计算 MD5 哈希值
+	hasher := md5.New()
+	hasher.Write([]byte(iqn))
+	hashBytes := hasher.Sum(nil)
+
+	// 将哈希值转换为 UUID
+	namestring, err := uuid.FromBytes(hashBytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate initiator group name: %v", err)
+	}
+
+	// 拼接组名
+	groupName := "initiator-group-" + namestring.String()
+	return groupName, nil
+}
+
 // AttachVolume attaches a volume to a specified instance
-func (m *Manager) AttachVolume(volId string, instanceId string) error {
-	// 获取卷信息
-	volume, err := m.tydsClient.GetVolume(volId)
+func (m *Manager) AttachVolume(volID, iqn string) error {
+	// Get volume information
+	volume, err := m.tydsClient.GetVolume(volID)
 	if err != nil {
 		return fmt.Errorf("failed to get volume: %v", err)
 	}
 
-	volumeName, _ := volume.(map[string]interface{})["name"].(string)
-	poolName, _ := volume.(map[string]interface{})["poolName"].(string)
+	volumeData, ok := volume.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("unexpected volume data type")
+	}
 
-	// 模拟Cinder中的初始化连接逻辑
-	groupName := "initiator-group-" + instanceId
+	volumeName, _ := volumeData["blockName"].(string)
+	poolName, _ := volumeData["poolName"].(string)
+
+	groupName, err := generateInitiatorGroupName(iqn)
+	if err != nil {
+		return fmt.Errorf("failed to generate initiator group name: %v", err)
+	}
 
 	volInfo := map[string]interface{}{
 		"name": volumeName,
-		"size": volume.(map[string]interface{})["sizeMB"],
+		"size": volumeData["sizeMB"],
 		"pool": poolName,
 	}
 
-	// 检查启动器组是否存在，并创建（如果需要）
+	// Query service status
+	services, err := m.tydsClient.GetService()
+	if err != nil {
+		return fmt.Errorf("failed to get service status: %v", err)
+	}
+
+	serviceStatus := make(map[string]string)
+	for _, service := range services {
+		hostName, ok := service["hostName"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected hostName type")
+		}
+
+		state, ok := service["state"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected service state type")
+		}
+
+		serviceStatus[hostName] = state
+	}
+
+	// Check if client group exists and create it if needed
 	initiatorList, err := m.tydsClient.GetInitiatorList()
 	if err != nil {
 		return fmt.Errorf("failed to get initiator list: %v", err)
 	}
 
+	initiatorListMap, ok := initiatorList.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("failed to convert initiatorList to map[string]interface{}")
+	}
+
+	clientGroupList, ok := initiatorListMap["client_group_list"].([]interface{})
+	if !ok {
+		return fmt.Errorf("failed to convert client_group_list to []interface{}")
+	}
+
 	initiatorExistence := false
-	for _, initiator := range initiatorList.([]interface{}) {
-		if initiator.(map[string]interface{})["group_name"].(string) == groupName {
+	for _, group := range clientGroupList {
+		groupMap, ok := group.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("failed to convert group to map[string]interface{}")
+		}
+
+		if groupMap["group_name"].(string) == groupName {
 			initiatorExistence = true
 			break
 		}
@@ -192,8 +255,8 @@ func (m *Manager) AttachVolume(volId string, instanceId string) error {
 	if !initiatorExistence {
 		client := []map[string]string{
 			{
-				"ip":  "IP_ADDRESS", // 替换为实际的 IP 地址
-				"iqn": instanceId,
+				"ip":  "",
+				"iqn": iqn,
 			},
 		}
 		err = m.tydsClient.CreateInitiatorGroup(groupName, client)
@@ -202,33 +265,136 @@ func (m *Manager) AttachVolume(volId string, instanceId string) error {
 		}
 	}
 
-	// 创建或更新目标和启动器组之间的连接
-	targetNodeList, err := m.tydsClient.GetTarget()
+	targetNodeList, err := m.tydsClient.GetHost()
 	if err != nil {
 		return fmt.Errorf("failed to get target nodes: %v", err)
 	}
 
-	targetNameList := make([]string, len(targetNodeList.([]interface{})))
-	for i, target := range targetNodeList.([]interface{}) {
-		targetNameList[i] = target.(map[string]interface{})["name"].(string)
+	targetNameList := make([]string, len(targetNodeList))
+	for i, target := range targetNodeList {
+		targetData, ok := target.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected target data type")
+		}
+
+		targetName, ok := targetData["name"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected target name type")
+		}
+
+		targetNameList[i] = targetName
 	}
 
-	_, err = m.tydsClient.CreateTarget(groupName, targetNameList, []interface{}{volInfo})
+	itList, err := m.tydsClient.GetInitiatorTargetConnections()
 	if err != nil {
-		return fmt.Errorf("failed to create or update target: %v", err)
+		return fmt.Errorf("failed to get initiator-target connections: %v", err)
 	}
 
-	// 生成配置
-	err = m.tydsClient.GenerateConfig("TARGET_IQN") // 替换为实际的 Target IQN
+	var itInfo map[string]interface{}
+	for _, it := range itList {
+		itData, ok := it.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected it data type")
+		}
+
+		targetName, ok := itData["target_name"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected target_name type")
+		}
+
+		if strings.Contains(targetName, groupName) {
+			itInfo = itData
+			break
+		}
+	}
+
+	if itInfo != nil {
+		// Update connection between target and client group
+		targetIQN := itInfo["target_iqn"].(string)
+
+		var lunInfo map[string]interface{}
+		blockList, ok := itInfo["block"].([]interface{})
+		if ok {
+			for _, block := range blockList {
+				blockData, ok := block.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("unexpected block data type")
+				}
+
+				if blockData["name"].(string) == volumeName {
+					lunInfo = blockData
+					break
+				}
+			}
+		}
+
+		if lunInfo == nil {
+			// Add new volume to existing Initiator-Target connection
+			targetNameList := itInfo["hostName"].([]string)
+			volsInfo := itInfo["block"].([]interface{})
+			volsInfo = append(volsInfo, volInfo)
+			_, err = m.tydsClient.ModifyTarget(targetIQN, targetNameList, volsInfo)
+			if err != nil {
+				return fmt.Errorf("failed to modify target: %v", err)
+			}
+		}
+	} else {
+		// Create connection between target and client group
+
+		_, err = m.tydsClient.CreateTarget(groupName, targetNameList, []interface{}{volInfo})
+		if err != nil {
+			return fmt.Errorf("failed to create or update target: %v", err)
+		}
+	}
+
+	itList, err = m.tydsClient.GetInitiatorTargetConnections()
 	if err != nil {
-		return fmt.Errorf("failed to generate config: %v", err)
+		return fmt.Errorf("failed to get initiator-target connections: %v", err)
+	}
+
+	for _, it := range itList {
+		itData, ok := it.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected it data type")
+		}
+
+		targetName, ok := itData["target_name"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected target_name type")
+		}
+
+		if strings.Contains(targetName, groupName) {
+			itInfo = itData
+			break
+		}
+	}
+
+	if itInfo != nil {
+		// Check and start inactive target nodes
+		for _, targetName := range targetNameList {
+			state, ok := serviceStatus[targetName]
+			if !ok || state == "down" {
+				err = m.tydsClient.StartService(targetName)
+				if err != nil {
+					return fmt.Errorf("failed to start service for %s: %v", targetName, err)
+				}
+			}
+		}
+
+		targetIQN := itInfo["target_iqn"].(string)
+
+		// Generate configuration
+		err = m.tydsClient.GenerateConfig(targetIQN) // Replace with actual Target IQN
+		if err != nil {
+			return fmt.Errorf("failed to generate config: %v", err)
+		}
 	}
 
 	return nil
 }
 
 // DetachVolume detaches a volume from a specified instance
-func (m *Manager) DetachVolume(volId string, instanceId string) error {
+func (m *Manager) DetachVolume(volId string, iqn string) error {
 	// 获取卷信息
 	volume, err := m.tydsClient.GetVolume(volId)
 	if err != nil {
@@ -238,7 +404,7 @@ func (m *Manager) DetachVolume(volId string, instanceId string) error {
 	volumeName, _ := volume.(map[string]interface{})["name"].(string)
 
 	// 生成 initiator 组名
-	groupName := "initiator-group-" + instanceId
+	groupName, err := generateInitiatorGroupName(iqn)
 
 	// 获取启动器-目标连接信息
 	itList, err := m.tydsClient.GetInitiatorTargetConnections()

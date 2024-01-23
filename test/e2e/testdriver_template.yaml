@@ -19,9 +19,4 @@ DriverInfo:
     volumeLimits: true
     singleNodeVolume: {single_node}
     topology: true
-#  TopologyKeys:
-#    - "topology.{commit_tag}.disk.csi.qingcloud.com/instance-type"
-#    - "topology.{commit_tag}.disk.csi.qingcloud.com/zone"
-#  SupportedSizeRange:
-#    Min: 10Gi
-#    Max: 2000Gi
+

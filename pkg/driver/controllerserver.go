@@ -55,7 +55,10 @@ func NewControllerServer(d *ToyouDriver, tm service.TydsManager) *ControllerServ
 
 // CreateVolume creates a new volume.
 func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
-	klog.Info("CreateVolume called")
+	funcName := "CreateVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volName := req.GetName()
 	requestSize := req.GetCapacityRange().GetRequiredBytes()
@@ -87,7 +90,10 @@ func (cs *ControllerServer) CreateVolume(ctx context.Context, req *csi.CreateVol
 
 // DeleteVolume deletes a volume.
 func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	klog.Info("DeleteVolume called")
+	funcName := "DeleteVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volName := req.GetVolumeId()
 	if volName == "" {
@@ -118,7 +124,10 @@ func (cs *ControllerServer) DeleteVolume(ctx context.Context, req *csi.DeleteVol
 
 // ListVolumes lists all volumes managed by the storage system.
 func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	klog.Info("ListVolumes called")
+	funcName := "ListVolumes"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volumeListInterface := cs.TydsManager.ListVolumes()
 
@@ -153,15 +162,24 @@ func (cs *ControllerServer) ListVolumes(ctx context.Context, req *csi.ListVolume
 
 // ControllerPublishVolume attaches a volume to a node.
 func (cs *ControllerServer) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	klog.Info("ControllerPublishVolume called")
+	funcName := "ControllerPublishVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volId := req.GetVolumeId()
 	nodeId := req.GetNodeId()
+	// 获取节点上 iSCSI 发起端的 IP 地址和 IQN
+	iqn := req.GetVolumeContext()["iqn"]
+
+	// Log the extracted values using klog
+	klog.Infof("IQN: %s", iqn)
+
 	if volId == "" || nodeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID and Node ID are required")
 	}
 
-	err := cs.TydsManager.AttachVolume(volId, nodeId)
+	err := cs.TydsManager.AttachVolume(volId, iqn)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to attach volume: %v", err)
 	}
@@ -171,7 +189,10 @@ func (cs *ControllerServer) ControllerPublishVolume(ctx context.Context, req *cs
 
 // ControllerUnpublishVolume detaches a volume from a node.
 func (cs *ControllerServer) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	klog.Info("ControllerUnpublishVolume called")
+	funcName := "ControllerUnpublishVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volId := req.GetVolumeId()
 	nodeId := req.GetNodeId()
@@ -189,7 +210,10 @@ func (cs *ControllerServer) ControllerUnpublishVolume(ctx context.Context, req *
 
 // ValidateVolumeCapabilities checks if a volume has the given capabilities.
 func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	klog.Info("ValidateVolumeCapabilities called")
+	funcName := "ValidateVolumeCapabilities"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	// This implementation is a placeholder. Replace it with your actual validation logic.
 
@@ -205,7 +229,10 @@ func (cs *ControllerServer) ValidateVolumeCapabilities(ctx context.Context, req 
 
 // ControllerGetCapabilities returns the capabilities of the controller service.
 func (cs *ControllerServer) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
-	klog.Info("ControllerGetCapabilities called")
+	funcName := "ControllerGetCapabilities"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	capabilities := cs.Driver.GetControllerCapability()
 	klog.Infof("Controller capabilities: %v", capabilities)
@@ -217,7 +244,10 @@ func (cs *ControllerServer) ControllerGetCapabilities(ctx context.Context, req *
 
 // CreateSnapshot creates a new snapshot from a volume.
 func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
-	klog.Info("CreateSnapshot called")
+	funcName := "CreateSnapshot"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	snapName := req.GetName()
 	volID := req.GetSourceVolumeId()
@@ -239,7 +269,10 @@ func (cs *ControllerServer) CreateSnapshot(ctx context.Context, req *csi.CreateS
 
 // DeleteSnapshot deletes a specific snapshot.
 func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
-	klog.Info("DeleteSnapshot called")
+	funcName := "DeleteSnapshot"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	snapID := req.GetSnapshotId()
 	if err := cs.TydsManager.DeleteSnapshot(snapID); err != nil {
@@ -251,17 +284,29 @@ func (cs *ControllerServer) DeleteSnapshot(ctx context.Context, req *csi.DeleteS
 
 // ListSnapshots lists all snapshots, optionally for a specific volume.
 func (cs *ControllerServer) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+	funcName := "ListSnapshots"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // GetCapacity returns the capacity of the storage pool.
 func (cs *ControllerServer) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+	funcName := "GetCapacity"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
+
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ControllerExpandVolume expands the volume to a new size.
 func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	klog.Info("ControllerExpandVolume called")
+	funcName := "ControllerExpandVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volumeId := req.GetVolumeId()
 	requiredSize := req.GetCapacityRange().GetRequiredBytes()
@@ -288,7 +333,10 @@ func (cs *ControllerServer) ControllerExpandVolume(ctx context.Context, req *csi
 
 // ControllerGetVolume returns information about a specific volume.
 func (cs *ControllerServer) ControllerGetVolume(ctx context.Context, req *csi.ControllerGetVolumeRequest) (*csi.ControllerGetVolumeResponse, error) {
-	klog.Info("ControllerGetVolume called")
+	funcName := "ControllerGetVolume"
+	info, hash := common.EntryFunction(funcName)
+	defer klog.Info(common.ExitFunction(funcName, hash))
+	klog.Info(info)
 
 	volId := req.GetVolumeId()
 	volume, err := cs.TydsManager.FindVolume(volId)

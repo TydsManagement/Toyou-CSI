@@ -470,10 +470,10 @@ func (c *TydsClient) GetCopyProgress(blockID string, blockName string, targetBlo
 }
 
 func (c *TydsClient) CreateInitiatorGroup(groupName string, client []map[string]string) error {
-	url := "iscsi/service-group/"
+	url := "iscsi/client-group/"
 	params := map[string]interface{}{
 		"group_name": groupName,
-		"service":    client,
+		"client":     client,
 		"chap_auth":  0,
 		"mode":       "ISCSI",
 	}
@@ -482,19 +482,34 @@ func (c *TydsClient) CreateInitiatorGroup(groupName string, client []map[string]
 }
 
 func (c *TydsClient) DeleteInitiatorGroup(groupID string) error {
-	url := fmt.Sprintf("iscsi/service-group/?group_id=%s", groupID)
+	url := fmt.Sprintf("iscsi/client-group/?group_id=%s", groupID)
 	_, err := c.SendHTTPAPI(url, nil, "DELETE")
 	return err
 }
 
 func (c *TydsClient) GetInitiatorList() (interface{}, error) {
-	url := "iscsi/service-group/"
+	url := "iscsi/client-group/"
 	return c.SendHTTPAPI(url, nil, "GET")
 }
 
-func (c *TydsClient) GetTarget() (interface{}, error) {
-	url := "/host/host/"
-	return c.SendHTTPAPI(url, nil, "GET")
+func (c *TydsClient) GetHost() ([]interface{}, error) {
+	url := "host/host/"
+	responseData, err := c.SendHTTPAPI(url, nil, "GET")
+	if err != nil {
+		return nil, err
+	}
+
+	hostListData, ok := responseData.(map[string]interface{})["hostList"]
+	if !ok {
+		return nil, fmt.Errorf("unexpected hostList data type")
+	}
+
+	hostList, ok := hostListData.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected hostList type")
+	}
+
+	return hostList, nil
 }
 
 func (c *TydsClient) CreateTarget(groupName string, targetList []string, volsInfo interface{}) (interface{}, error) {
@@ -565,4 +580,44 @@ func (c *TydsClient) RestartService(hostName string) error {
 	}
 	_, err := c.SendHTTPAPI(url, params, "POST")
 	return err
+}
+
+func (c *TydsClient) StartService(hostName string) error {
+	url := "iscsi/service/start/"
+	params := map[string]interface{}{
+		"hostName": hostName,
+	}
+	_, err := c.SendHTTPAPI(url, params, "POST")
+	return err
+}
+
+func (c *TydsClient) GetService() ([]map[string]interface{}, error) {
+	url := "iscsi/service/"
+	responseData, err := c.SendHTTPAPI(url, nil, "GET")
+	if err != nil {
+		return nil, err
+	}
+
+	responseMap, ok := responseData.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected response data type")
+	}
+
+	serviceList, ok := responseMap["serviceList"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected service list data type")
+	}
+
+	var services []map[string]interface{}
+
+	for _, service := range serviceList {
+		serviceData, ok := service.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unexpected service data type")
+		}
+
+		services = append(services, serviceData)
+	}
+
+	return services, nil
 }
