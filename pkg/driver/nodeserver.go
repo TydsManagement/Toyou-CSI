@@ -67,6 +67,7 @@ func (ns *NodeServer) NodeStageVolume(ctx context.Context, req *csi.NodeStageVol
 	}
 
 	// 2. Skip staging if volume is in block mode
+	klog.Infof("req.GetVolumeCapability().GetBlock(): %s", req.GetVolumeCapability().GetBlock())
 	if req.GetVolumeCapability().GetBlock() != nil {
 		klog.Infof("Skipping staging of volume %s on path %s since it's in block mode", volumeID, stagingTargetPath)
 		return &csi.NodeStageVolumeResponse{}, nil

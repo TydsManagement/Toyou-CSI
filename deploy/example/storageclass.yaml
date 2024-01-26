@@ -5,6 +5,6 @@ metadata:
 provisioner: csi.toyou.com
 allowVolumeExpansion: true
 parameters:
-  csi.storage.k8s.io/fstype: xfs
+  csi.storage.k8s.io/fstype: ext4
   iqn: iqn.2024-01.example.server:storage.target00
 reclaimPolicy: Delete

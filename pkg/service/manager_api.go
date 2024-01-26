@@ -202,27 +202,6 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 		"pool": poolName,
 	}
 
-	// Query service status
-	services, err := m.tydsClient.GetService()
-	if err != nil {
-		return fmt.Errorf("failed to get service status: %v", err)
-	}
-
-	serviceStatus := make(map[string]string)
-	for _, service := range services {
-		hostName, ok := service["hostName"].(string)
-		if !ok {
-			return fmt.Errorf("unexpected hostName type")
-		}
-
-		state, ok := service["state"].(string)
-		if !ok {
-			return fmt.Errorf("unexpected service state type")
-		}
-
-		serviceStatus[hostName] = state
-	}
-
 	// Check if client group exists and create it if needed
 	initiatorList, err := m.tydsClient.GetInitiatorList()
 	if err != nil {
@@ -240,6 +219,7 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 	}
 
 	initiatorExistence := false
+	DidCreateInitiator := false
 	for _, group := range clientGroupList {
 		groupMap, ok := group.(map[string]interface{})
 		if !ok {
@@ -260,6 +240,7 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 			},
 		}
 		err = m.tydsClient.CreateInitiatorGroup(groupName, client)
+		DidCreateInitiator = true
 		if err != nil {
 			return fmt.Errorf("failed to create initiator group: %v", err)
 		}
@@ -307,7 +288,7 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 			break
 		}
 	}
-
+	DidCreateTlConnection := false
 	if itInfo != nil {
 		// Update connection between target and client group
 		targetIQN := itInfo["target_iqn"].(string)
@@ -334,19 +315,21 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 			volsInfo := itInfo["block"].([]interface{})
 			volsInfo = append(volsInfo, volInfo)
 			_, err = m.tydsClient.ModifyTarget(targetIQN, targetNameList, volsInfo)
+			DidCreateTlConnection = true
 			if err != nil {
 				return fmt.Errorf("failed to modify target: %v", err)
 			}
 		}
 	} else {
 		// Create connection between target and client group
-
 		_, err = m.tydsClient.CreateTarget(groupName, targetNameList, []interface{}{volInfo})
+		DidCreateTlConnection = true
 		if err != nil {
-			return fmt.Errorf("failed to create or update target: %v", err)
+			return fmt.Errorf("failed to create target connection: %v", err)
 		}
 	}
 
+	// Assure that all target nodes are active
 	itList, err = m.tydsClient.GetInitiatorTargetConnections()
 	if err != nil {
 		return fmt.Errorf("failed to get initiator-target connections: %v", err)
@@ -369,7 +352,28 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 		}
 	}
 
-	if itInfo != nil {
+	if DidCreateInitiator && itInfo != nil && DidCreateTlConnection {
+		// Query service status
+		services, err := m.tydsClient.GetService()
+		if err != nil {
+			return fmt.Errorf("failed to get service status: %v", err)
+		}
+
+		serviceStatus := make(map[string]string)
+		for _, service := range services {
+			hostName, ok := service["hostName"].(string)
+			if !ok {
+				return fmt.Errorf("unexpected hostName type")
+			}
+
+			state, ok := service["state"].(string)
+			if !ok {
+				return fmt.Errorf("unexpected service state type")
+			}
+
+			serviceStatus[hostName] = state
+		}
+
 		// Check and start inactive target nodes
 		for _, targetName := range targetNameList {
 			state, ok := serviceStatus[targetName]
