@@ -196,11 +196,12 @@ func (cs *ControllerServer) ControllerUnpublishVolume(ctx context.Context, req *
 
 	volId := req.GetVolumeId()
 	nodeId := req.GetNodeId()
+	// 获取节点上 iSCSI 发起端的 IP 地址和 IQN
 	if volId == "" || nodeId == "" {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID and Node ID are required")
 	}
 
-	err := cs.TydsManager.DetachVolume(volId, nodeId)
+	err := cs.TydsManager.DetachVolume(volId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to detach volume: %v", err)
 	}

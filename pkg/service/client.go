@@ -564,6 +564,10 @@ func (c *TydsClient) GetInitiatorTargetConnections() ([]interface{}, error) {
 	return targetList, nil
 }
 
+func (c *TydsClient) GetTargetIqn() {
+
+}
+
 func (c *TydsClient) GenerateConfig(targetName string) error {
 	url := "iscsi/target-config/"
 	params := map[string]interface{}{

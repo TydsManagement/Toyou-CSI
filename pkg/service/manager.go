@@ -22,8 +22,8 @@ type VolumeManager interface {
 	CreateVolume(volName string, requestSize int) (volId string, err error)
 	DeleteVolume(volId int) (err error)
 	ListVolumes() []map[string]interface{}
-	AttachVolume(volId string, instanceId string) (err error)
-	DetachVolume(volId string, instanceId string) (err error)
+	AttachVolume(volId string, iqn string) (err error)
+	DetachVolume(volId string) (err error)
 	ResizeVolume(volId string, requestSize int64) (err error)
 }
 

@@ -398,33 +398,42 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 }
 
 // DetachVolume detaches a volume from a specified instance
-func (m *Manager) DetachVolume(volId string, iqn string) error {
+func (m *Manager) DetachVolume(volId string) error {
 	// 获取卷信息
 	volume, err := m.tydsClient.GetVolume(volId)
 	if err != nil {
 		return fmt.Errorf("failed to get volume: %v", err)
 	}
 
-	volumeName, _ := volume.(map[string]interface{})["name"].(string)
+	volumeName, _ := volume.(map[string]interface{})["blockName"].(string)
 
-	// 生成 initiator 组名
-	groupName, err := generateInitiatorGroupName(iqn)
+	// 查询 initiator 组名
+	groupName := volume.(map[string]interface{})["target"].(string)
 
 	// 获取启动器-目标连接信息
 	itList, err := m.tydsClient.GetInitiatorTargetConnections()
 	if err != nil {
 		return fmt.Errorf("failed to get initiator-target connections: %v", err)
 	}
-
+	//klog.Infof("itList: %s", itList)
 	var itInfo map[string]interface{}
 	for _, it := range itList {
-		itMap := it.(map[string]interface{})
-		if itMap["target_name"].(string) == groupName {
-			itInfo = itMap
+		itData, ok := it.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected it data type")
+		}
+
+		targetName, ok := itData["target_name"].(string)
+		if !ok {
+			return fmt.Errorf("unexpected target_name type")
+		}
+		klog.Infof("strings.Contains: %v (targetName: %s, groupName: %s) ", strings.Contains(targetName, groupName), targetName, groupName)
+		if strings.Contains(targetName, groupName) {
+			itInfo = itData
 			break
 		}
 	}
-
+	klog.Infof("itInfo: %s", itInfo)
 	if itInfo != nil {
 		targetIqn := itInfo["target_iqn"].(string)
 		targetNameList := itInfo["hostName"].([]string)
@@ -444,6 +453,43 @@ func (m *Manager) DetachVolume(volId string, iqn string) error {
 			_, err := m.tydsClient.DeleteTarget(targetIqn)
 			if err != nil {
 				return fmt.Errorf("failed to delete target: %v", err)
+			}
+			initiatorList, err := m.tydsClient.GetInitiatorList()
+			if err != nil {
+				return fmt.Errorf("failed to get initiator list: %v", err)
+			}
+			var initiatorToDelete map[string]interface{} = nil
+			if list, ok := initiatorList.([]map[string]interface{}); ok {
+				for _, initiator := range list {
+					if initiator["group_name"] == groupName {
+						initiatorToDelete = initiator
+						break
+					}
+				}
+			} else {
+				return fmt.Errorf("unexpected initiator list type")
+			}
+
+			if initiatorToDelete != nil {
+				groupID, ok := initiatorToDelete["group_id"].(string)
+				if !ok {
+					return fmt.Errorf("unexpected group_id type")
+				}
+
+				err := m.tydsClient.DeleteInitiatorGroup(groupID)
+				if err != nil {
+					return fmt.Errorf("failed to delete initiator group: %v", err)
+				}
+			}
+
+			hostName, ok := itInfo["hostName"].(string)
+			if !ok {
+				return fmt.Errorf("unexpected hostName type")
+			}
+
+			err = m.tydsClient.RestartService(hostName)
+			if err != nil {
+				return fmt.Errorf("failed to restart service: %v", err)
 			}
 		} else {
 			// 否则更新目标
