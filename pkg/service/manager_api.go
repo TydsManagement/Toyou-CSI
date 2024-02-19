@@ -311,10 +311,10 @@ func (m *Manager) AttachVolume(volID, iqn string) error {
 
 		if lunInfo == nil {
 			// Add new volume to existing Initiator-Target connection
-			targetNameList := itInfo["hostName"].([]string)
+			targetHost := itInfo["hostName"].(string)
 			volsInfo := itInfo["block"].([]interface{})
 			volsInfo = append(volsInfo, volInfo)
-			_, err = m.tydsClient.ModifyTarget(targetIQN, targetNameList, volsInfo)
+			_, err = m.tydsClient.ModifyTarget(targetIQN, targetHost, volsInfo)
 			DidCreateTlConnection = true
 			if err != nil {
 				return fmt.Errorf("failed to modify target: %v", err)
@@ -408,8 +408,12 @@ func (m *Manager) DetachVolume(volId string) error {
 	volumeName, _ := volume.(map[string]interface{})["blockName"].(string)
 
 	// 查询 initiator 组名
-	groupName := volume.(map[string]interface{})["target"].(string)
+	groupName, ok := volume.(map[string]interface{})["target"].(string)
+	if !ok || len(groupName) < 7 {
+		return fmt.Errorf("failed to get target group name")
+	}
 
+	groupName = groupName[7:] // 去掉前面的七位字符
 	// 获取启动器-目标连接信息
 	itList, err := m.tydsClient.GetInitiatorTargetConnections()
 	if err != nil {
@@ -427,7 +431,6 @@ func (m *Manager) DetachVolume(volId string) error {
 		if !ok {
 			return fmt.Errorf("unexpected target_name type")
 		}
-		klog.Infof("strings.Contains: %v (targetName: %s, groupName: %s) ", strings.Contains(targetName, groupName), targetName, groupName)
 		if strings.Contains(targetName, groupName) {
 			itInfo = itData
 			break
@@ -436,7 +439,7 @@ func (m *Manager) DetachVolume(volId string) error {
 	klog.Infof("itInfo: %s", itInfo)
 	if itInfo != nil {
 		targetIqn := itInfo["target_iqn"].(string)
-		targetNameList := itInfo["hostName"].([]string)
+		targetHost := itInfo["hostName"].(string)
 		volsInfo := itInfo["block"].([]interface{})
 
 		// 移除卷信息
@@ -493,7 +496,7 @@ func (m *Manager) DetachVolume(volId string) error {
 			}
 		} else {
 			// 否则更新目标
-			_, err := m.tydsClient.ModifyTarget(targetIqn, targetNameList, newVolsInfo)
+			_, err := m.tydsClient.ModifyTarget(targetIqn, targetHost, newVolsInfo)
 			if err != nil {
 				return fmt.Errorf("failed to modify target: %v", err)
 			}
