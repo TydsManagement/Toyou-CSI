@@ -529,13 +529,23 @@ func (c *TydsClient) DeleteTarget(targetName string) (interface{}, error) {
 	return c.SendHTTPAPI(url, nil, "DELETE")
 }
 
-func (c *TydsClient) ModifyTarget(targetName string, targetList []string, volInfo interface{}) (interface{}, error) {
+func (c *TydsClient) ModifyTarget(targetName string, targetHost interface{}, volInfo interface{}) (interface{}, error) {
 	url := "iscsi/target/"
 	params := map[string]interface{}{
 		"targetIqn": targetName,
 		"chap_auth": 0,
-		"hostName":  targetList,
 		"block":     volInfo,
+	}
+	switch value := targetHost.(type) {
+	case string:
+		if strings.Contains(value, ",") {
+			hostNames := strings.Split(value, ",")
+			params["hostName"] = hostNames
+		} else {
+			params["hostName"] = value
+		}
+	default:
+		return nil, fmt.Errorf("unexpected target host name type")
 	}
 	return c.SendHTTPAPI(url, params, "PUT")
 }
