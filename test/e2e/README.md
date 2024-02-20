@@ -1,4 +1,4 @@
-# QingCloud-CSI E2E Test
+# Toyou-CSI E2E Test
 
 ## Description
 
@@ -8,7 +8,7 @@ This directory contains scripts and config templates used to run [Kubernetes ext
 
 The test can only be run on QingCloud nodes with a installed Kubernetes cluster, as it actually creates/attaches volumes by calling the QingCloud IAAS API.
 
-Make sure it's a clean environment with no existing `qingcloud-csi`, which will conflict with the csi driver of the e2e test.
+Make sure it's a clean environment with no existing `toyou-csi`, which will conflict with the csi driver of the e2e test.
 
 Make sure no volume is attached to any node, which will mess up with the volume limits test. If that's impossible, add an `ClientNodeName` entry in the `testdriver_template.yaml`, set its value to a node which has no volume attached, like:
 
@@ -26,9 +26,9 @@ Make sure a kubeconfig file with admin access of the cluster exists under the pa
 
 And in order to be authorized to call that API, some configurations are needed beforehand, on the node which you will run the test:
 
-- put your QingCloud access key id under the path `/etc/qingcloud/access_key_id`
-- put your QingCloud secret access key under the path `/etc/qingcloud/secret_access_key`
-- put the zone where your nodes' in under the path `/etc/qingcloud/zone`
+- put your QingCloud access key id under the path `/etc/toyou/access_key_id`
+- put your QingCloud secret access key under the path `/etc/toyou/secret_access_key`
+- put the zone where your nodes' in under the path `/etc/toyou/zone`
 
 ## Optional
 
@@ -38,7 +38,7 @@ And in order to be authorized to call that API, some configurations are needed b
 # change the ${k8s_server_version} to the version of your k8s server
 curl -L https://storage.googleapis.com/kubernetes-release/release/${k8s_server_version}/kubernetes-test-linux-amd64.tar.gz --output e2e-tests.tar.gz
 # upload the file to the test node before execute the following 
-tar -xf e2e-tests.tar.gz --directory=./qingcloud-csi/test/e2e && rm e2e-tests.tar.gz
+tar -xf e2e-tests.tar.gz --directory=./toyou-csi/test/e2e && rm e2e-tests.tar.gz
 ```
 
 2. Multiple nodes are preferred, if that's possible, as some tests will check against volume drifting from one node to another. If there is only one, those tests will be skipped by the script.
